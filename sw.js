@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'bmu-inventory-v1';
+const CACHE_NAME = 'bmu-inventory-v2';
 
 // List of files that make up the "app shell"
 const assetsToCache = [
