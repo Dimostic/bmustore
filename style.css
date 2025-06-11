@@ -90,9 +90,14 @@ a {
 
 /* --- Main App Layout --- */
 #app {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    grid-template-rows: auto 1fr auto; /* Add 'auto' for the footer row */
+    grid-template-areas:
+        "header header"
+        "nav main"
+        "nav footer"; /* Make the footer span the bottom */
+    height: 100vh;
 }
 
 header {
@@ -406,4 +411,14 @@ input:focus, select:focus {
     .content-section {
         padding: 15px;
     }
+}
+/* --- Footer --- */
+.app-footer {
+    grid-area: footer; /* Assign it to the grid area */
+    text-align: center;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    font-size: 0.9rem;
+    color: #6c757d;
 }
