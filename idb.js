@@ -2,7 +2,7 @@
 // Uses best practices for IndexedDB usage
 
 const DB_NAME = 'bmu_store_db';
-const DB_VERSION = 2; // bump version for new stores
+const DB_VERSION = 3; // bump version to recreate stores
 const STORE_NAMES = ['grn', 'srv', 'srf', 'items', 'activity_log', 'users', 'sessions', 'roles', 'audit_log'];
 
 function openDB() {
@@ -15,10 +15,6 @@ function openDB() {
                     db.createObjectStore(store, { keyPath: 'id', autoIncrement: true });
                 }
             });
-            // users: username, passwordHash, role
-            // sessions: sessionId, userId, expiresAt
-            // roles: roleName, permissions
-            // audit_log: action, userId, timestamp, details
         };
         request.onsuccess = function(e) { resolve(e.target.result); };
         request.onerror = function(e) { reject(e.target.error); };
@@ -28,20 +24,29 @@ function openDB() {
 async function addRecord(store, record) {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-        const tx = db.transaction(store, 'readwrite');
-        const req = tx.objectStore(store).add(record);
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
+        try {
+            const tx = db.transaction(store, 'readwrite');
+            const req = tx.objectStore(store).add(record);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        } catch (err) {
+            reject(err);
+        }
     });
 }
 
 async function getAllRecords(store) {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-        const tx = db.transaction(store, 'readonly');
-        const req = tx.objectStore(store).getAll();
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
+        try {
+            const tx = db.transaction(store, 'readonly');
+            const req = tx.objectStore(store).getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+        } catch (err) {
+            console.error(`Error getting records from ${store}:`, err);
+            resolve([]); // Return empty array on error
+        }
     });
 }
 

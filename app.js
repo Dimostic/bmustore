@@ -347,7 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loginPage.style.display = 'none';
             appPage.style.display = 'block';
             errorEl.textContent = '';
-            // initializeApp();
+            initializeApp();
             logActivity('User Login', `User '${username}' logged in.`);
         } else {
             errorEl.textContent = 'Invalid username or password.';
@@ -778,8 +778,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const itemsContainer = form.querySelector('[id$="-items-container"]');
             if (itemsContainer) itemsContainer.innerHTML = '';
 
-            // Clear signature pads
-            Object.values(signaturePads).forEach(pad => pad.clear());
+            // Clear signature pads safely
+            Object.values(signaturePads).forEach(pad => {
+                if (pad && typeof pad.clear === 'function') {
+                    pad.clear();
+                }
+            });
         }
     };
     
@@ -1197,8 +1201,10 @@ document.addEventListener('DOMContentLoaded', () => {
         $('#grn-items-container').empty();
         // Add first empty row
         $('#grn-items-container').append(createItemRow('grn', 1));
-        // Clear signatures
-        Object.values(signaturePads).forEach(pad => pad && pad.clear());
+        // Clear signatures safely
+        Object.values(signaturePads).forEach(pad => {
+            if (pad && typeof pad.clear === 'function') pad.clear();
+        });
         openModal('grn');
     });
 
@@ -1426,6 +1432,18 @@ document.addEventListener('DOMContentLoaded', () => {
     $('#export-activity-log').on('click', async function() {
         const data = await getAllRecords('activity_log');
         exportToCSV(data, 'Activity_Log', tableConfigs.activityLog.columns);
+    });
+
+    // --- Bin Card Category Filter ---
+    $('#bin-card-filter').on('change', function() {
+        const filterValue = $(this).val();
+        if (dataTables.binCard) {
+            if (filterValue) {
+                dataTables.binCard.column(3).search('^' + filterValue + '$', true, false).draw();
+            } else {
+                dataTables.binCard.column(3).search('').draw();
+            }
+        }
     });
 
     // --- CSV Import Handler (for SRV) ---
@@ -1700,35 +1718,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Add navigation for user management and sync ---
     $(document).ready(function() {
-        if ($('#manage-users-nav').length === 0) {
-            $('.top-nav ul').append('<li><a href="#" id="manage-users-nav" class="nav-link">Manage Users</a></li>');
-        }
-        if ($('#sync-to-remote').length === 0) {
-            $('.top-nav ul').append('<li><a href="#" id="sync-to-remote" class="nav-link">Sync to Server</a></li>');
-            $('.top-nav ul').append('<li><a href="#" id="sync-from-remote" class="nav-link">Sync from Server</a></li>');
-        }
+        // User management section is added to main content, not floating
         if ($('#user-management-section').length === 0) {
-            $('#app').append('<section id="user-management-section" class="content-section" style="display:none;"></section>');
+            $('main').append('<section id="user-management-section" class="content-section" style="display:none;"></section>');
         }
     });
 
-    // Add a temporary button for inserting dummy data (remove in production)
-    if (!document.getElementById('insert-dummy-btn')) {
-        const btn = document.createElement('button');
-        btn.id = 'insert-dummy-btn';
-        btn.textContent = 'Insert Dummy Data';
-        btn.className = 'btn btn-secondary';
-        btn.style.position = 'fixed';
-        btn.style.bottom = '80px';
-        btn.style.right = '20px';
-        btn.style.zIndex = 9999;
-        btn.onclick = async () => {
-            btn.disabled = true;
-            btn.textContent = 'Inserting...';
-            await insertDummyData();
-            btn.textContent = 'Insert Dummy Data';
-            btn.disabled = false;
-        };
-        document.body.appendChild(btn);
-    }
 });
+// End of DOMContentLoaded

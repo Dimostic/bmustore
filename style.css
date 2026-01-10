@@ -759,6 +759,14 @@ table.dataTable tbody tr:hover {
     .form-row.four-col {
         grid-template-columns: repeat(2, 1fr);
     }
+    /* Make items table scrollable */
+    .items-table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .items-entry-table {
+        min-width: 800px;
+    }
 }
 
 @media (max-width: 768px) {
