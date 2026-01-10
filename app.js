@@ -1,13 +1,8 @@
-// Access IndexedDB utilities from the global window.IDB object (loaded from idb.js)
-const {
-  addRecord, getAllRecords, getRecordByKey, updateRecord, deleteRecord, showToast,
-  registerUser, authenticateUser, createSession, getSession, logoutSession,
-  addRole, getRole, logAudit,
-  syncStoreToRemote, fetchStoreFromRemote
-} = window.IDB;
+// IndexedDB utilities will be accessed via window.IDB (loaded from idb.js)
 
 // --- Dummy Data Insertion for Testing ---
 async function insertDummyData() {
+    const { addRecord, registerUser, showToast } = window.IDB;
     // Items
     await addRecord('items', { code: 'ITM001', name: 'Syringe 5ml', unit: 'pcs', createdAt: '2026-01-01T09:00:00Z' });
     await addRecord('items', { code: 'ITM002', name: 'Gloves', unit: 'box', createdAt: '2026-01-01T09:05:00Z' });
@@ -95,6 +90,14 @@ async function insertDummyData() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+
+    // --- Access IndexedDB utilities from window.IDB ---
+    const {
+        addRecord, getAllRecords, getRecordByKey, updateRecord, deleteRecord, showToast,
+        registerUser, authenticateUser, createSession, getSession, logoutSession,
+        addRole, getRole, logAudit,
+        syncStoreToRemote, fetchStoreFromRemote
+    } = window.IDB;
 
     // --- Service Worker Registration ---
     if ('serviceWorker' in navigator) {
