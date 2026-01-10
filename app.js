@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Service Worker Registration ---
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js')
+        navigator.serviceWorker.register('./sw.js')
             .then(reg => console.log('Service Worker registered', reg))
             .catch(err => console.error('Service Worker registration failed', err));
     }
@@ -241,8 +241,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Modal Management ---
-    const openModal = (modalId) => modals[modalId].style.display = 'block';
+    const openModal = (modalId) => {
+        if (modals[modalId]) modals[modalId].style.display = 'block';
+    };
     const closeModal = (modalId) => {
+        if (!modals[modalId]) return;
         modals[modalId].style.display = 'none';
         // Reset form content when closing
         const form = forms[modalId];
@@ -263,12 +266,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Attach close event listeners
     Object.keys(modals).forEach(key => {
         const modal = modals[key];
-        const closeBtn = modal.querySelector('.close-btn');
-        closeBtn.onclick = () => closeModal(key);
+        if (modal) {
+            const closeBtn = modal.querySelector('.close-btn');
+            if (closeBtn) {
+                closeBtn.onclick = () => closeModal(key);
+            }
+        }
     });
     window.onclick = (event) => {
         Object.values(modals).forEach(modal => {
-            if (event.target == modal) {
+            if (modal && event.target == modal) {
                 closeModal(modal.id.replace('-modal', ''));
             }
         });

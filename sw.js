@@ -1,19 +1,21 @@
 
-const CACHE_NAME = 'bmu-inventory-v2';
+const CACHE_NAME = 'bmu-inventory-v3';
 
 // List of files that make up the "app shell"
+// Using relative paths for GitHub Pages compatibility
 const assetsToCache = [
-    '/',
-    '/index.html',
-    '/style.css',
-    '/app.js',
-    '/idb.js',
-    '/manifest.json',
-    '/bmulogo.png',
-    '/icons/92.png',
-    '/icons/128.png',
-    '/icons/192.png',
-    '/icons/512.png',
+    './',
+    './index.html',
+    './style.css',
+    './app.js',
+    './idb.js',
+    './manifest.json',
+    './bmulogo.png',
+    './favicon.ico',
+    './icons/92.png',
+    './icons/128.png',
+    './icons/192.png',
+    './icons/512.png',
     // Third-party libraries from CDNs
     'https://code.jquery.com/jquery-3.7.0.min.js',
     'https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js',
