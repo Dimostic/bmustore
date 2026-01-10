@@ -587,7 +587,26 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const data = await getAllRecords(dbName === 'activityLog' ? 'activity_log' : dbName);
+        // Handle binCard specially - it's computed, not a store
+        let data;
+        if (dbName === 'binCard') {
+            const items = await getAllRecords('items');
+            const srv = await getAllRecords('srv');
+            const srf = await getAllRecords('srf');
+            data = items.map(item => ({
+                codeNo: item.code,
+                nameOfItem: item.name,
+                unit: item.unit,
+                storeBalance: srv.filter(s => s.itemCode === item.code).length - 
+                              srf.filter(s => s.itemCode === item.code).length
+            }));
+        } else {
+            // Map store names
+            const storeNameMap = { 'activityLog': 'activity_log' };
+            const storeName = storeNameMap[dbName] || dbName;
+            data = await getAllRecords(storeName);
+        }
+
         const options = {
             data: data,
             columns: config.columns,
@@ -598,25 +617,29 @@ document.addEventListener('DOMContentLoaded', () => {
         
         dataTables[dbName] = $(`#${tableId}`).DataTable(options);
         
-        // Add event listeners for edit/delete after table is created
-        $(`#${tableId} tbody`).on('click', '.btn-delete', function () {
-            const id = $(this).data('id');
-            handleDelete(dbName, id);
-        });
+        // Add event listeners for edit/delete after table is created (skip for binCard)
+        if (dbName !== 'binCard') {
+            $(`#${tableId} tbody`).on('click', '.btn-delete', function () {
+                const id = $(this).data('id');
+                handleDelete(dbName, id);
+            });
 
-        $(`#${tableId} tbody`).on('click', '.btn-edit', async function () {
-            const id = $(this).data('id');
-            const doc = await getAllRecords(dbName).then(records => records.find(record => record.id === id));
-            // This needs specific edit handlers per form type
-            if (editHandlers[dbName]) {
-                editHandlers[dbName](doc);
-            }
-        });
+            $(`#${tableId} tbody`).on('click', '.btn-edit', async function () {
+                const id = $(this).data('id');
+                const storeNameMap = { 'activityLog': 'activity_log' };
+                const storeName = storeNameMap[dbName] || dbName;
+                const doc = await getAllRecords(storeName).then(records => records.find(record => record.id === id));
+                // This needs specific edit handlers per form type
+                if (editHandlers[dbName]) {
+                    editHandlers[dbName](doc);
+                }
+            });
+        }
     };
 
     // --- GRN Logic ---
     $('#add-grn-btn').on('click', function() {
-        $('#grn-form')[0].reset();
+        if ($('#grn-form').length) $('#grn-form')[0].reset();
         $('#grn-id').val('');
         openModal('grn');
     });
@@ -666,7 +689,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- SRV Logic ---
     $('#add-srv-btn').on('click', function() {
-        $('#srv-form')[0].reset();
+        if ($('#srv-form').length) $('#srv-form')[0].reset();
         $('#srv-id').val('');
         openModal('srv');
     });
@@ -698,7 +721,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- SRF Logic ---
     $('#add-srf-btn').on('click', function() {
-        $('#srf-form')[0].reset();
+        if ($('#srf-form').length) $('#srf-form')[0].reset();
         $('#srf-id').val('');
         openModal('srf');
     });
