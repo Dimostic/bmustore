@@ -197,6 +197,92 @@ document.addEventListener('DOMContentLoaded', () => {
         charts = {};
     };
 
+    // --- Dashboard Functions ---
+    const initializeDashboard = async () => {
+        await initializeDashboardCharts();
+    };
+
+    const initializeDashboardCharts = async () => {
+        try {
+            // Get data for charts
+            const items = await getAllRecords('items');
+            const grn = await getAllRecords('grn');
+            const srv = await getAllRecords('srv');
+            const srf = await getAllRecords('srf');
+
+            // Stock Value Chart
+            const stockValueCtx = document.getElementById('stockValueChart');
+            if (stockValueCtx) {
+                if (charts.stockValue) charts.stockValue.destroy();
+                charts.stockValue = new Chart(stockValueCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Items', 'GRN', 'SRV', 'SRF'],
+                        datasets: [{
+                            label: 'Record Count',
+                            data: [items.length, grn.length, srv.length, srf.length],
+                            backgroundColor: ['#002366', '#4a90d9', '#28a745', '#ffc107']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: { display: true, text: 'Records Overview' }
+                        }
+                    }
+                });
+            }
+
+            // Item Movement Chart
+            const itemMovementCtx = document.getElementById('itemMovementChart');
+            if (itemMovementCtx) {
+                if (charts.itemMovement) charts.itemMovement.destroy();
+                charts.itemMovement = new Chart(itemMovementCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Received (GRN)', 'Stored (SRV)', 'Requisitioned (SRF)'],
+                        datasets: [{
+                            data: [grn.length, srv.length, srf.length],
+                            backgroundColor: ['#002366', '#28a745', '#dc3545']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: { display: true, text: 'Item Movement' }
+                        }
+                    }
+                });
+            }
+        } catch (err) {
+            console.error('Error initializing dashboard charts:', err);
+        }
+    };
+
+    // --- Bin Card Functions ---
+    const updateBinCard = async () => {
+        try {
+            const items = await getAllRecords('items');
+            const srv = await getAllRecords('srv');
+            const srf = await getAllRecords('srf');
+
+            // Simple bin card calculation: items with balance based on srv (in) and srf (out)
+            const binCardData = items.map(item => ({
+                codeNo: item.code,
+                nameOfItem: item.name,
+                unit: item.unit,
+                storeBalance: srv.filter(s => s.itemCode === item.code).length - 
+                              srf.filter(s => s.itemCode === item.code).length
+            }));
+
+            if (dataTables.binCard) {
+                dataTables.binCard.clear().rows.add(binCardData).draw();
+            }
+        } catch (err) {
+            console.error('Error updating bin card:', err);
+        }
+    };
+
     // --- Navigation ---
     const handleNavigation = (e) => {
         e.preventDefault();
@@ -283,36 +369,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Item Management ---
     const initializeItemsLogic = () => {
-        document.getElementById('add-item-btn').addEventListener('click', () => {
-            forms.item.reset();
-            document.getElementById('item-id').value = '';
+        const addItemBtn = document.getElementById('add-item-btn');
+        if (!addItemBtn) {
+            console.warn('add-item-btn not found, skipping item logic initialization');
+            return;
+        }
+        addItemBtn.addEventListener('click', () => {
+            if (forms.item) forms.item.reset();
+            const itemIdEl = document.getElementById('item-id');
+            if (itemIdEl) itemIdEl.value = '';
             openModal('item');
         });
 
-        forms.item.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const id = document.getElementById('item-id').value;
-            const itemData = {
-                code: document.getElementById('item-code').value,
-                name: document.getElementById('item-name').value,
-                unit: document.getElementById('item-unit').value,
-            };
+        if (forms.item) {
+            forms.item.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const itemIdEl = document.getElementById('item-id');
+                const id = itemIdEl ? itemIdEl.value : '';
+                const itemData = {
+                    code: document.getElementById('item-code')?.value || '',
+                    name: document.getElementById('item-name')?.value || '',
+                    unit: document.getElementById('item-unit')?.value || '',
+                };
 
-            try {
-                if (id) {
-                    await updateRecord('items', { id, ...itemData });
-                    logActivity('Item Update', `Updated item: ${itemData.name}`);
-                } else {
-                    await addRecord('items', { ...itemData, createdAt: new Date().toISOString() });
-                    logActivity('Item Create', `Created new item: ${itemData.name}`);
+                try {
+                    if (id) {
+                        await updateRecord('items', { id, ...itemData });
+                        logActivity('Item Update', `Updated item: ${itemData.name}`);
+                    } else {
+                        await addRecord('items', { ...itemData, createdAt: new Date().toISOString() });
+                        logActivity('Item Create', `Created new item: ${itemData.name}`);
+                    }
+                    closeModal('item');
+                    await refreshTable('items');
+                    await updateBinCard(); // Items might affect bin card
+                } catch (err) {
+                    console.error('Error saving item:', err);
                 }
-                closeModal('item');
-                await refreshTable('items');
-                await updateBinCard(); // Items might affect bin card
-            } catch (err) {
-                console.error('Error saving item:', err);
-            }
-        });
+            });
+        }
     };
     
     const fetchItems = async () => {
