@@ -59,13 +59,31 @@
             <!-- Dashboard Section -->
             <section id="dashboard" class="content-section">
                 <h2>Dashboard</h2>
+                <div class="stats-container">
+                    <div class="stat-card items">
+                        <h4>Total Items</h4>
+                        <div class="stat-value" id="stat-items">0</div>
+                    </div>
+                    <div class="stat-card grn">
+                        <h4>GRN Records</h4>
+                        <div class="stat-value" id="stat-grn">0</div>
+                    </div>
+                    <div class="stat-card srv">
+                        <h4>SRV Records</h4>
+                        <div class="stat-value" id="stat-srv">0</div>
+                    </div>
+                    <div class="stat-card srf">
+                        <h4>SRF Records</h4>
+                        <div class="stat-value" id="stat-srf">0</div>
+                    </div>
+                </div>
                 <div class="charts-container">
                     <div class="chart-box">
-                        <h3>Stock Value Overview</h3>
+                        <h3>Items by Category</h3>
                         <canvas id="stockValueChart"></canvas>
                     </div>
                     <div class="chart-box">
-                        <h3>Item Movement</h3>
+                        <h3>Item Movement Summary</h3>
                         <canvas id="itemMovementChart"></canvas>
                     </div>
                 </div>
@@ -113,9 +131,20 @@
                  <div class="section-header">
                     <h2>Bin Card</h2>
                     <div>
-                      <button id="export-bin-card" class="btn">Export to CSV</button>
+                        <select id="bin-card-filter" class="form-control" style="padding:8px; border-radius:5px; border:1px solid #d1d9e6;">
+                            <option value="">All Categories</option>
+                            <option value="medical">Medical Supplies</option>
+                            <option value="stationery">Stationery</option>
+                            <option value="equipment">Equipment</option>
+                            <option value="consumables">Consumables</option>
+                            <option value="other">Other</option>
+                        </select>
+                        <button id="export-bin-card" class="btn">Export to CSV</button>
                     </div>
                 </div>
+                <p class="text-muted" style="margin-bottom:15px; color:#6c757d;">
+                    <strong>Note:</strong> Balance = Total Received (from GRN) - Total Issued (from SRF)
+                </p>
                 <table id="bin-card-table" class="display" width="100%"></table>
             </section>
             
@@ -151,86 +180,520 @@
     <div id="toast" role="status" aria-live="polite" style="display:none;position:fixed;bottom:20px;right:20px;z-index:9999;background:#333;color:#fff;padding:12px 24px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.2);"></div>
 
     <!-- Modals for Forms -->
-    <!-- GRN Modal -->
+    <!-- GRN Modal - Complete Goods Received Note Form -->
     <div id="grn-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="grn-modal-title">
-        <div class="modal-content">
+        <div class="modal-content modal-large">
             <span class="close-btn" tabindex="0" aria-label="Close GRN Modal">&times;</span>
             <form id="grn-form">
-                <h3 id="grn-modal-title">Goods Received Note</h3>
+                <div class="form-header">
+                    <h3 id="grn-modal-title">GOODS RECEIVED NOTE (GRN)</h3>
+                    <p class="form-subtitle">Bayelsa Medical University - Store Department</p>
+                </div>
                 <input type="hidden" id="grn-id">
-                <h4>Supplier Information</h4>
-                <label for="grn-supplier-name">Supplier Name</label>
-                <input type="text" id="grn-supplier-name" placeholder="Supplier Name" required>
-                <label for="grn-carrier">Carrier/Transporter</label>
-                <input type="text" id="grn-carrier" placeholder="Carrier/Transporter" required>
-                <label for="grn-delivery-date">Delivery Date</label>
-                <input type="date" id="grn-delivery-date" required>
-                <label for="grn-drn-no">DRN No</label>
-                <input type="text" id="grn-drn-no" placeholder="DRN No" required>
-                <label for="grn-lpo-no">LPO No</label>
-                <input type="text" id="grn-lpo-no" placeholder="LPO No" required>
-                <label for="grn-issue-date">Issue Date</label>
-                <input type="date" id="grn-issue-date" required>
-                <button type="submit" class="btn">Save GRN</button>
+                
+                <!-- Header Info -->
+                <div class="form-section">
+                    <h4>Header Information</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="grn-drn-no">GRN/DRN No <span class="required">*</span></label>
+                            <input type="text" id="grn-drn-no" placeholder="e.g., GRN-2024-001" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="grn-issue-date">Issue Date <span class="required">*</span></label>
+                            <input type="date" id="grn-issue-date" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="grn-lpo-no">LPO No <span class="required">*</span></label>
+                            <input type="text" id="grn-lpo-no" placeholder="Local Purchase Order No" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="grn-delivery-date">Delivery Date <span class="required">*</span></label>
+                            <input type="date" id="grn-delivery-date" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Supplier Info -->
+                <div class="form-section">
+                    <h4>Supplier Information</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="grn-supplier-name">Supplier Name <span class="required">*</span></label>
+                            <input type="text" id="grn-supplier-name" placeholder="Supplier Name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="grn-carrier">Carrier/Transporter</label>
+                            <input type="text" id="grn-carrier" placeholder="Carrier/Transporter">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="grn-waybill-no">Waybill No</label>
+                            <input type="text" id="grn-waybill-no" placeholder="Waybill Number">
+                        </div>
+                        <div class="form-group">
+                            <label for="grn-invoice-no">Invoice No</label>
+                            <input type="text" id="grn-invoice-no" placeholder="Invoice Number">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Item Details -->
+                <div class="form-section">
+                    <h4>Item Details</h4>
+                    <div class="items-table-container">
+                        <table class="items-entry-table" id="grn-items-table">
+                            <thead>
+                                <tr>
+                                    <th>S/NO</th>
+                                    <th>Item Description</th>
+                                    <th>Item Code</th>
+                                    <th>Qty Ordered</th>
+                                    <th>Qty Received</th>
+                                    <th>Unit</th>
+                                    <th>Remark</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="grn-items-container">
+                                <!-- Dynamic rows will be added here -->
+                            </tbody>
+                        </table>
+                        <button type="button" id="add-grn-item-row" class="btn btn-secondary btn-sm">+ Add Item Row</button>
+                    </div>
+                </div>
+
+                <!-- Verification Info -->
+                <div class="form-section">
+                    <h4>Verification & Examination</h4>
+                    <div class="form-row three-col">
+                        <div class="form-group">
+                            <label for="grn-examined-by">Examined By</label>
+                            <input type="text" id="grn-examined-by" placeholder="Name">
+                        </div>
+                        <div class="form-group">
+                            <label for="grn-examined-dept">Department</label>
+                            <input type="text" id="grn-examined-dept" placeholder="Department">
+                        </div>
+                        <div class="form-group">
+                            <label>Signature</label>
+                            <div class="signature-container">
+                                <canvas id="grn-examined-sig" class="signature-pad"></canvas>
+                                <button type="button" class="clear-sig-btn" data-target="grn-examined-sig">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-row three-col">
+                        <div class="form-group">
+                            <label for="grn-received-by">Received By (Store)</label>
+                            <input type="text" id="grn-received-by" placeholder="Name">
+                        </div>
+                        <div class="form-group">
+                            <label for="grn-received-dept">Department</label>
+                            <input type="text" id="grn-received-dept" placeholder="Department">
+                        </div>
+                        <div class="form-group">
+                            <label>Signature</label>
+                            <div class="signature-container">
+                                <canvas id="grn-received-sig" class="signature-pad"></canvas>
+                                <button type="button" class="clear-sig-btn" data-target="grn-received-sig">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Distribution -->
+                <div class="form-section">
+                    <h4>Distribution</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="grn-distribution">Distribution Copies To:</label>
+                            <textarea id="grn-distribution" placeholder="e.g., Finance, Audit, Requesting Dept" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('grn')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save GRN</button>
+                </div>
             </form>
         </div>
     </div>
 
-    <!-- SRV Modal -->
+    <!-- SRV Modal - Complete Store Receipt Voucher Form -->
     <div id="srv-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="srv-modal-title">
-        <div class="modal-content">
+        <div class="modal-content modal-large">
             <span class="close-btn" tabindex="0" aria-label="Close SRV Modal">&times;</span>
             <form id="srv-form">
-                <h3 id="srv-modal-title">Store Receipt Voucher</h3>
+                <div class="form-header">
+                    <h3 id="srv-modal-title">STORE RECEIPT VOUCHER (SRV)</h3>
+                    <p class="form-subtitle">Bayelsa Medical University - Store Department</p>
+                </div>
                 <input type="hidden" id="srv-id">
-                <label for="srv-doc-num">Document Number</label>
-                <input type="text" id="srv-doc-num" placeholder="Document Number" required>
-                <label for="srv-department">Department</label>
-                <input type="text" id="srv-department" placeholder="Department" required>
-                <label for="srv-source">Source</label>
-                <input type="text" id="srv-source" placeholder="Source" required>
-                <label for="srv-date">Date</label>
-                <input type="date" id="srv-date" required>
-                <button type="submit" class="btn">Save SRV</button>
+                
+                <!-- Header Info -->
+                <div class="form-section">
+                    <h4>Header Information</h4>
+                    <div class="form-row three-col">
+                        <div class="form-group">
+                            <label for="srv-doc-num">SRV No <span class="required">*</span></label>
+                            <input type="text" id="srv-doc-num" placeholder="e.g., SRV-2024-001" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="srv-date">Date <span class="required">*</span></label>
+                            <input type="date" id="srv-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="srv-po-lso-no">PO/LSO No</label>
+                            <input type="text" id="srv-po-lso-no" placeholder="Purchase Order/LSO No">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="srv-department">Department <span class="required">*</span></label>
+                            <input type="text" id="srv-department" placeholder="Department" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="srv-source">Source/Supplier <span class="required">*</span></label>
+                            <input type="text" id="srv-source" placeholder="Source/Supplier" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Item Details -->
+                <div class="form-section">
+                    <h4>Item Details</h4>
+                    <div class="items-table-container">
+                        <table class="items-entry-table" id="srv-items-table">
+                            <thead>
+                                <tr>
+                                    <th>S/N</th>
+                                    <th>Item Description</th>
+                                    <th>Item Code</th>
+                                    <th>Denomination/Unit</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Value (₦)</th>
+                                    <th>Ledger/Folio</th>
+                                    <th>Purpose/Remarks</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="srv-items-container">
+                                <!-- Dynamic rows will be added here -->
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="6" class="text-right"><strong>Total Value:</strong></td>
+                                    <td colspan="4"><strong id="srv-total-value">₦0.00</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                        <button type="button" id="add-srv-item-row" class="btn btn-secondary btn-sm">+ Add Item Row</button>
+                    </div>
+                </div>
+
+                <!-- Reference Info -->
+                <div class="form-section">
+                    <h4>Reference Information</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="srv-order-no">Order No</label>
+                            <input type="text" id="srv-order-no" placeholder="Order Number">
+                        </div>
+                        <div class="form-group">
+                            <label for="srv-order-date">Order Date</label>
+                            <input type="date" id="srv-order-date">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="srv-invoice-no">Invoice No</label>
+                            <input type="text" id="srv-invoice-no" placeholder="Invoice Number">
+                        </div>
+                        <div class="form-group">
+                            <label for="srv-invoice-date">Invoice Date</label>
+                            <input type="date" id="srv-invoice-date">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Certification -->
+                <div class="form-section">
+                    <h4>Certification</h4>
+                    <p class="certification-text">I certify that the above items have been received and properly documented.</p>
+                    <div class="form-row three-col">
+                        <div class="form-group">
+                            <label for="srv-certified-by">Certified By</label>
+                            <input type="text" id="srv-certified-by" placeholder="Name">
+                        </div>
+                        <div class="form-group">
+                            <label for="srv-certified-designation">Designation</label>
+                            <input type="text" id="srv-certified-designation" placeholder="Designation">
+                        </div>
+                        <div class="form-group">
+                            <label>Signature</label>
+                            <div class="signature-container">
+                                <canvas id="srv-certified-sig" class="signature-pad"></canvas>
+                                <button type="button" class="clear-sig-btn" data-target="srv-certified-sig">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="srv-certified-date">Date</label>
+                            <input type="date" id="srv-certified-date">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('srv')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save SRV</button>
+                </div>
             </form>
         </div>
     </div>
 
-    <!-- SRF Modal -->
+    <!-- SRF Modal - Complete Stores Requisition Form -->
     <div id="srf-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="srf-modal-title">
-        <div class="modal-content">
+        <div class="modal-content modal-large">
             <span class="close-btn" tabindex="0" aria-label="Close SRF Modal">&times;</span>
             <form id="srf-form">
-                <h3 id="srf-modal-title">Stores Requisition Form</h3>
+                <div class="form-header">
+                    <h3 id="srf-modal-title">STORES REQUISITION FORM (SRF)</h3>
+                    <p class="form-subtitle">Bayelsa Medical University - Store Department</p>
+                </div>
                 <input type="hidden" id="srf-id">
-                <label for="srf-no">SRF Number</label>
-                <input type="text" id="srf-no" placeholder="SRF Number" required>
-                <label for="srf-department">Department/Unit</label>
-                <input type="text" id="srf-department" placeholder="Department/Unit" required>
-                <label for="srf-requester">Requester Name</label>
-                <input type="text" id="srf-requester" placeholder="Requester Name" required>
-                <label for="srf-date">Date</label>
-                <input type="date" id="srf-date" required>
-                <button type="submit" class="btn">Save SRF</button>
+                
+                <!-- Requester Info -->
+                <div class="form-section">
+                    <h4>Requester Information</h4>
+                    <div class="form-row three-col">
+                        <div class="form-group">
+                            <label for="srf-no">SRF No <span class="required">*</span></label>
+                            <input type="text" id="srf-no" placeholder="e.g., SRF-2024-001" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="srf-date">Date <span class="required">*</span></label>
+                            <input type="date" id="srf-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="srf-code">Cost Code</label>
+                            <input type="text" id="srf-code" placeholder="Cost Center Code">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="srf-department">Department/Unit <span class="required">*</span></label>
+                            <input type="text" id="srf-department" placeholder="Department/Unit" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="srf-requester">Requester Name <span class="required">*</span></label>
+                            <input type="text" id="srf-requester" placeholder="Requester Name" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="srf-designation">Designation</label>
+                            <input type="text" id="srf-designation" placeholder="Job Title/Designation">
+                        </div>
+                        <div class="form-group">
+                            <label>Requester Signature</label>
+                            <div class="signature-container">
+                                <canvas id="srf-requester-sig" class="signature-pad"></canvas>
+                                <button type="button" class="clear-sig-btn" data-target="srf-requester-sig">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Item Details -->
+                <div class="form-section">
+                    <h4>Items Requested</h4>
+                    <div class="items-table-container">
+                        <table class="items-entry-table" id="srf-items-table">
+                            <thead>
+                                <tr>
+                                    <th>S/NO</th>
+                                    <th>Item Description</th>
+                                    <th>Item Code</th>
+                                    <th>Unit</th>
+                                    <th>Qty Requested</th>
+                                    <th>Qty Issued</th>
+                                    <th>Remarks</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="srf-items-container">
+                                <!-- Dynamic rows will be added here -->
+                            </tbody>
+                        </table>
+                        <button type="button" id="add-srf-item-row" class="btn btn-secondary btn-sm">+ Add Item Row</button>
+                    </div>
+                </div>
+
+                <!-- Approval Section -->
+                <div class="form-section">
+                    <h4>Approval</h4>
+                    <div class="form-row three-col">
+                        <div class="form-group">
+                            <label for="srf-approved-by">Approved By (HOD)</label>
+                            <input type="text" id="srf-approved-by" placeholder="Head of Department">
+                        </div>
+                        <div class="form-group">
+                            <label for="srf-approval-date">Approval Date</label>
+                            <input type="date" id="srf-approval-date">
+                        </div>
+                        <div class="form-group">
+                            <label>Approval Signature</label>
+                            <div class="signature-container">
+                                <canvas id="srf-approval-sig" class="signature-pad"></canvas>
+                                <button type="button" class="clear-sig-btn" data-target="srf-approval-sig">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Store Processing -->
+                <div class="form-section">
+                    <h4>Store Processing</h4>
+                    <div class="form-row three-col">
+                        <div class="form-group">
+                            <label for="srf-issued-by">Issued By (Store Officer)</label>
+                            <input type="text" id="srf-issued-by" placeholder="Store Officer Name">
+                        </div>
+                        <div class="form-group">
+                            <label for="srf-issue-date">Issue Date</label>
+                            <input type="date" id="srf-issue-date">
+                        </div>
+                        <div class="form-group">
+                            <label>Store Officer Signature</label>
+                            <div class="signature-container">
+                                <canvas id="srf-store-sig" class="signature-pad"></canvas>
+                                <button type="button" class="clear-sig-btn" data-target="srf-store-sig">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="srf-received-by">Received By</label>
+                            <input type="text" id="srf-received-by" placeholder="Name of person receiving items">
+                        </div>
+                        <div class="form-group">
+                            <label>Receiver Signature</label>
+                            <div class="signature-container">
+                                <canvas id="srf-receiver-sig" class="signature-pad"></canvas>
+                                <button type="button" class="clear-sig-btn" data-target="srf-receiver-sig">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('srf')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save SRF</button>
+                </div>
             </form>
         </div>
     </div>
 
-    <!-- Item Modal -->
+    <!-- Item Modal - Complete Item Management Form -->
     <div id="item-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="item-modal-title">
         <div class="modal-content">
             <span class="close-btn" tabindex="0" aria-label="Close Item Modal">&times;</span>
             <form id="item-form">
-                <h3 id="item-modal-title">Manage Item</h3>
+                <div class="form-header">
+                    <h3 id="item-modal-title">Manage Item</h3>
+                </div>
                 <input type="hidden" id="item-id">
-                <label for="item-code">Item Code</label>
-                <input type="text" id="item-code" placeholder="Item Code" required>
-                <label for="item-name">Item Name</label>
-                <input type="text" id="item-name" placeholder="Item Name" required>
-                <label for="item-unit">Unit</label>
-                <input type="text" id="item-unit" placeholder="Unit (e.g., pcs, box, kg)" required>
-                <button type="submit" class="btn">Save Item</button>
+                <div class="form-section">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="item-code">Item Code <span class="required">*</span></label>
+                            <input type="text" id="item-code" placeholder="e.g., ITM-001" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="item-name">Item Name <span class="required">*</span></label>
+                            <input type="text" id="item-name" placeholder="Item Name" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="item-unit">Unit <span class="required">*</span></label>
+                            <select id="item-unit" required>
+                                <option value="">Select Unit</option>
+                                <option value="pcs">Pieces (pcs)</option>
+                                <option value="box">Box</option>
+                                <option value="pack">Pack</option>
+                                <option value="kg">Kilogram (kg)</option>
+                                <option value="ltr">Litre (ltr)</option>
+                                <option value="ream">Ream</option>
+                                <option value="carton">Carton</option>
+                                <option value="bottle">Bottle</option>
+                                <option value="roll">Roll</option>
+                                <option value="set">Set</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="item-category">Category</label>
+                            <select id="item-category">
+                                <option value="">Select Category</option>
+                                <option value="medical">Medical Supplies</option>
+                                <option value="stationery">Stationery</option>
+                                <option value="equipment">Equipment</option>
+                                <option value="consumables">Consumables</option>
+                                <option value="furniture">Furniture</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="item-min-stock">Minimum Stock Level</label>
+                            <input type="number" id="item-min-stock" placeholder="Reorder Point" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="item-location">Storage Location</label>
+                            <input type="text" id="item-location" placeholder="e.g., Shelf A-1">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="item-description">Description</label>
+                        <textarea id="item-description" placeholder="Additional item details" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('item')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Item</button>
+                </div>
             </form>
+        </div>
+    </div>
+
+    <!-- CSV Import Modal -->
+    <div id="import-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
+        <div class="modal-content">
+            <span class="close-btn" tabindex="0" aria-label="Close Import Modal">&times;</span>
+            <h3 id="import-modal-title">Import CSV Data</h3>
+            <div class="form-section">
+                <div class="form-group">
+                    <label for="import-file">Select CSV File</label>
+                    <input type="file" id="import-file" accept=".csv" class="file-input">
+                </div>
+                <div class="import-preview" id="import-preview" style="display:none;">
+                    <h4>Preview (First 5 rows)</h4>
+                    <div id="preview-table-container"></div>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('import')">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirm-import-btn" disabled>Import Data</button>
+            </div>
         </div>
     </div>
 
