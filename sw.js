@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'bmu-inventory-v1';
+const CACHE_NAME = 'bmu-inventory-v2';
 
 // List of files that make up the "app shell"
 const assetsToCache = [
@@ -7,6 +7,7 @@ const assetsToCache = [
     '/index.html',
     '/style.css',
     '/app.js',
+    '/idb.js',
     '/manifest.json',
     '/bmulogo.png',
     '/icons/92.png',
@@ -17,7 +18,6 @@ const assetsToCache = [
     'https://code.jquery.com/jquery-3.7.0.min.js',
     'https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js',
     'https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css',
-    'https://cdn.jsdelivr.net/npm/pouchdb@8.0.1/dist/pouchdb.min.js',
     'https://cdn.jsdelivr.net/npm/chart.js',
     'https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js'
 ];

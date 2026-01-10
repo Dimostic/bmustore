@@ -1,9 +1,10 @@
-import {
-  addRecord, getAllRecords, updateRecord, deleteRecord, showToast,
+// Access IndexedDB utilities from the global window.IDB object (loaded from idb.js)
+const {
+  addRecord, getAllRecords, getRecordByKey, updateRecord, deleteRecord, showToast,
   registerUser, authenticateUser, createSession, getSession, logoutSession,
   addRole, getRole, logAudit,
   syncStoreToRemote, fetchStoreFromRemote
-} from './idb.js';
+} = window.IDB;
 
 // --- Dummy Data Insertion for Testing ---
 async function insertDummyData() {

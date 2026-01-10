@@ -25,7 +25,7 @@ function openDB() {
     });
 }
 
-export async function addRecord(store, record) {
+async function addRecord(store, record) {
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const tx = db.transaction(store, 'readwrite');
@@ -35,7 +35,7 @@ export async function addRecord(store, record) {
     });
 }
 
-export async function getAllRecords(store) {
+async function getAllRecords(store) {
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const tx = db.transaction(store, 'readonly');
@@ -45,7 +45,7 @@ export async function getAllRecords(store) {
     });
 }
 
-export async function getRecordByKey(store, key) {
+async function getRecordByKey(store, key) {
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const tx = db.transaction(store, 'readonly');
@@ -55,7 +55,7 @@ export async function getRecordByKey(store, key) {
     });
 }
 
-export async function updateRecord(store, record) {
+async function updateRecord(store, record) {
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const tx = db.transaction(store, 'readwrite');
@@ -65,7 +65,7 @@ export async function updateRecord(store, record) {
     });
 }
 
-export async function deleteRecord(store, id) {
+async function deleteRecord(store, id) {
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const tx = db.transaction(store, 'readwrite');
@@ -76,14 +76,14 @@ export async function deleteRecord(store, id) {
 }
 
 // --- Authentication & User Management ---
-export async function registerUser(username, password, role = 'user') {
+async function registerUser(username, password, role = 'user') {
     // Hash password (simple hash for demo, use bcrypt in production)
     const passwordHash = await simpleHash(password);
     const user = { username, passwordHash, role };
     return addRecord('users', user);
 }
 
-export async function authenticateUser(username, password) {
+async function authenticateUser(username, password) {
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const tx = db.transaction('users', 'readonly');
@@ -113,14 +113,14 @@ function simpleHash(str) {
     return Promise.resolve(btoa(str));
 }
 
-export async function createSession(userId) {
+async function createSession(userId) {
     const sessionId = Math.random().toString(36).substr(2, 16);
     const expiresAt = Date.now() + 1000 * 60 * 60; // 1 hour
     await addRecord('sessions', { sessionId, userId, expiresAt });
     return sessionId;
 }
 
-export async function getSession(sessionId) {
+async function getSession(sessionId) {
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const tx = db.transaction('sessions', 'readonly');
@@ -142,7 +142,7 @@ export async function getSession(sessionId) {
     });
 }
 
-export async function logoutSession(sessionId) {
+async function logoutSession(sessionId) {
     // Remove session
     const db = await openDB();
     return new Promise((resolve, reject) => {
@@ -167,11 +167,11 @@ export async function logoutSession(sessionId) {
 }
 
 // --- Roles & Permissions ---
-export async function addRole(roleName, permissions = []) {
+async function addRole(roleName, permissions = []) {
     return addRecord('roles', { roleName, permissions });
 }
 
-export async function getRole(roleName) {
+async function getRole(roleName) {
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const tx = db.transaction('roles', 'readonly');
@@ -194,7 +194,7 @@ export async function getRole(roleName) {
 }
 
 // --- Audit Logging ---
-export async function logAudit(action, userId, details = {}) {
+async function logAudit(action, userId, details = {}) {
     return addRecord('audit_log', {
         action,
         userId,
@@ -204,7 +204,7 @@ export async function logAudit(action, userId, details = {}) {
 }
 
 // Utility for showing toast notifications
-export function showToast(message, duration = 3000) {
+function showToast(message, duration = 3000) {
     const toast = document.getElementById('toast');
     if (!toast) return;
     toast.textContent = message;
@@ -216,7 +216,7 @@ export function showToast(message, duration = 3000) {
 // Replace with your real API endpoint
 const API_BASE_URL = 'https://your-enterprise-api.example.com/api';
 
-export async function syncStoreToRemote(store) {
+async function syncStoreToRemote(store) {
     const records = await getAllRecords(store);
     try {
         const res = await fetch(`${API_BASE_URL}/sync/${store}`, {
@@ -231,7 +231,7 @@ export async function syncStoreToRemote(store) {
     }
 }
 
-export async function fetchStoreFromRemote(store) {
+async function fetchStoreFromRemote(store) {
     try {
         const res = await fetch(`${API_BASE_URL}/sync/${store}`);
         if (!res.ok) throw new Error('Fetch failed');
@@ -246,3 +246,24 @@ export async function fetchStoreFromRemote(store) {
         showToast(`Fetch error: ${err.message}`);
     }
 }
+
+// Expose all functions on window for global access
+window.IDB = {
+    openDB,
+    addRecord,
+    getAllRecords,
+    getRecordByKey,
+    updateRecord,
+    deleteRecord,
+    registerUser,
+    authenticateUser,
+    createSession,
+    getSession,
+    logoutSession,
+    addRole,
+    getRole,
+    logAudit,
+    showToast,
+    syncStoreToRemote,
+    fetchStoreFromRemote
+};
