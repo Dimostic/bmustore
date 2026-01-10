@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BMU Inventory Management</title>
+    <meta name="theme-color" content="#002366"/>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="images/icon-192x192.png">
+</head>
+<body>
+
+    <!-- Login Page -->
+    <div id="login-page">
+        <div class="login-container">
+            <img src="bmulogo.png" alt="BMU Logo" class="login-logo">
+            <h2>Inventory Management</h2>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" value="admin" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit" class="btn">Login</button>
+                <p id="login-error" class="error-message"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" style="display: none;">
+        <header>
+            <div class="header-content">
+                <img src="bmulogo.png" alt="BMU Logo" class="app-logo">
+                <h1>Bayelsa Medical University - Inventory</h1>
+            </div>
+            <button id="logout-btn" class="btn btn-danger">Logout</button>
+        </header>
+
+        <nav class="top-nav">
+            <ul>
+                <li><a href="#" class="nav-link active" data-target="dashboard">Dashboard</a></li>
+                <li><a href="#" class="nav-link" data-target="grn">Goods Received Note</a></li>
+                <li><a href="#" class="nav-link" data-target="srv">Store Receipt Voucher</a></li>
+                <li><a href="#" class="nav-link" data-target="srf">Stores Requisition</a></li>
+                <li><a href="#" class="nav-link" data-target="bin-card">Bin Card</a></li>
+                <li><a href="#" class="nav-link" data-target="items">Manage Items</a></li>
+                <li><a href="#" class="nav-link" data-target="activity-log">Activity Log</a></li>
+            </ul>
+        </nav>
+
+        <main>
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="content-section">
+                <h2>Dashboard</h2>
+                <div class="charts-container">
+                    <div class="chart-box">
+                        <h3>Stock Value Overview</h3>
+                        <canvas id="stockValueChart"></canvas>
+                    </div>
+                    <div class="chart-box">
+                        <h3>Item Movement</h3>
+                        <canvas id="itemMovementChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Goods Received Note Section -->
+            <section id="grn" class="content-section" style="display: none;">
+                <div class="section-header">
+                    <h2>Goods Received Note (GRN)</h2>
+                    <div>
+                        <button id="add-grn-btn" class="btn">Add New GRN</button>
+                        <button id="export-grn" class="btn">Export to CSV</button>
+                    </div>
+                </div>
+                <table id="grn-table" class="display" width="100%"></table>
+            </section>
+
+            <!-- Store Receipt Voucher Section -->
+            <section id="srv" class="content-section" style="display: none;">
+                <div class="section-header">
+                    <h2>Store Receipt Voucher</h2>
+                     <div>
+                        <button id="add-srv-btn" class="btn">Add New Voucher</button>
+                        <button id="import-srv" class="btn">Import</button>
+                        <button id="export-srv" class="btn">Export to CSV</button>
+                    </div>
+                </div>
+                <table id="srv-table" class="display" width="100%"></table>
+            </section>
+
+            <!-- Stores Requisition Form Section -->
+            <section id="srf" class="content-section" style="display: none;">
+                <div class="section-header">
+                    <h2>Stores Requisition Form (SRF)</h2>
+                    <div>
+                        <button id="add-srf-btn" class="btn">Add New Requisition</button>
+                        <button id="export-srf" class="btn">Export to CSV</button>
+                    </div>
+                </div>
+                <table id="srf-table" class="display" width="100%"></table>
+            </section>
+
+            <!-- Bin Card Section -->
+            <section id="bin-card" class="content-section" style="display: none;">
+                 <div class="section-header">
+                    <h2>Bin Card</h2>
+                    <div>
+                      <button id="export-bin-card" class="btn">Export to CSV</button>
+                    </div>
+                </div>
+                <table id="bin-card-table" class="display" width="100%"></table>
+            </section>
+            
+            <!-- Items Section -->
+            <section id="items" class="content-section" style="display: none;">
+                <div class="section-header">
+                    <h2>Manage Items</h2>
+                    <div>
+                        <button id="add-item-btn" class="btn">Add New Item</button>
+                        <button id="export-items" class="btn">Export to CSV</button>
+                    </div>
+                </div>
+                <table id="items-table" class="display" width="100%"></table>
+            </section>
+
+            <!-- Activity Log Section -->
+            <section id="activity-log" class="content-section" style="display: none;">
+                <div class="section-header">
+                    <h2>Activity Log</h2>
+                    <div>
+                       <button id="export-activity-log" class="btn">Export to CSV</button>
+                    </div>
+                </div>
+                <table id="activity-log-table" class="display" width="100%"></table>
+            </section>
+        </main>
+        <footer class="app-footer" aria-label="Application Footer">
+            <p>Developed by: Dimie Ogoina</p>
+        </footer>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" role="status" aria-live="polite" style="display:none;position:fixed;bottom:20px;right:20px;z-index:9999;background:#333;color:#fff;padding:12px 24px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.2);"></div>
+
+    <!-- Modals for Forms -->
+    <!-- GRN Modal -->
+    <div id="grn-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="grn-modal-title">
+        <div class="modal-content">
+            <span class="close-btn" tabindex="0" aria-label="Close GRN Modal">&times;</span>
+            <form id="grn-form">
+                <h3 id="grn-modal-title">Goods Received Note</h3>
+                <input type="hidden" id="grn-id">
+                <h4>Supplier Information</h4>
+                <label for="grn-supplier-name">Supplier Name</label>
+                <input type="text" id="grn-supplier-name" placeholder="Supplier Name" required>
+                <label for="grn-carrier">Carrier/Transporter</label>
+                <input type="text" id="grn-carrier" placeholder="Carrier/Transporter" required>
+                <label for="grn-delivery-date">Delivery Date</label>
+                <input type="date" id="grn-delivery-date" required>
+                <label for="grn-drn-no">DRN No</label>
+                <input type="text" id="grn-drn-no" placeholder="DRN No" required>
+                <label for="grn-lpo-no">LPO No</label>
+                <input type="text" id="grn-lpo-no" placeholder="LPO No" required>
+                <label for="grn-issue-date">Issue Date</label>
+                <input type="date" id="grn-issue-date" required>
+                <!-- ...existing code for item details and verification... -->
+            </form>
+        </div>
+    </div>
+    <!-- ...existing code for other modals, add ARIA attributes and labels similarly... -->
+
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    <script src="idb.js"></script>
+    <script src="app.js"></script>
+<script>window.parent.postMessage({ action: "ready" }, "*"); 
+ 
+window.console = new Proxy(console, {
+  get(target, prop) {
+    if (['log', 'warn', 'error'].includes(prop)) {
+      return new Proxy(target[prop], {
+        apply(fn, thisArg, args) {
+          fn.apply(thisArg, args);
+          window.parent.postMessage({ action: 'console', 
+            type: prop, 
+            args: args.map((arg) => {
+              try {
+                return JSON.stringify(arg).replace(/^["']|["']$/g, '');
+              } catch (e) {
+                return arg;
+              }
+            }) 
+          }, '*');
+        }
+      });
+    }
+    return target[prop];
+  }
+});
+</script></body>
+</html>
