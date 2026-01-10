@@ -171,11 +171,68 @@
                 <input type="text" id="grn-lpo-no" placeholder="LPO No" required>
                 <label for="grn-issue-date">Issue Date</label>
                 <input type="date" id="grn-issue-date" required>
-                <!-- ...existing code for item details and verification... -->
+                <button type="submit" class="btn">Save GRN</button>
             </form>
         </div>
     </div>
-    <!-- ...existing code for other modals, add ARIA attributes and labels similarly... -->
+
+    <!-- SRV Modal -->
+    <div id="srv-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="srv-modal-title">
+        <div class="modal-content">
+            <span class="close-btn" tabindex="0" aria-label="Close SRV Modal">&times;</span>
+            <form id="srv-form">
+                <h3 id="srv-modal-title">Store Receipt Voucher</h3>
+                <input type="hidden" id="srv-id">
+                <label for="srv-doc-num">Document Number</label>
+                <input type="text" id="srv-doc-num" placeholder="Document Number" required>
+                <label for="srv-department">Department</label>
+                <input type="text" id="srv-department" placeholder="Department" required>
+                <label for="srv-source">Source</label>
+                <input type="text" id="srv-source" placeholder="Source" required>
+                <label for="srv-date">Date</label>
+                <input type="date" id="srv-date" required>
+                <button type="submit" class="btn">Save SRV</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- SRF Modal -->
+    <div id="srf-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="srf-modal-title">
+        <div class="modal-content">
+            <span class="close-btn" tabindex="0" aria-label="Close SRF Modal">&times;</span>
+            <form id="srf-form">
+                <h3 id="srf-modal-title">Stores Requisition Form</h3>
+                <input type="hidden" id="srf-id">
+                <label for="srf-no">SRF Number</label>
+                <input type="text" id="srf-no" placeholder="SRF Number" required>
+                <label for="srf-department">Department/Unit</label>
+                <input type="text" id="srf-department" placeholder="Department/Unit" required>
+                <label for="srf-requester">Requester Name</label>
+                <input type="text" id="srf-requester" placeholder="Requester Name" required>
+                <label for="srf-date">Date</label>
+                <input type="date" id="srf-date" required>
+                <button type="submit" class="btn">Save SRF</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Item Modal -->
+    <div id="item-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="item-modal-title">
+        <div class="modal-content">
+            <span class="close-btn" tabindex="0" aria-label="Close Item Modal">&times;</span>
+            <form id="item-form">
+                <h3 id="item-modal-title">Manage Item</h3>
+                <input type="hidden" id="item-id">
+                <label for="item-code">Item Code</label>
+                <input type="text" id="item-code" placeholder="Item Code" required>
+                <label for="item-name">Item Name</label>
+                <input type="text" id="item-name" placeholder="Item Name" required>
+                <label for="item-unit">Unit</label>
+                <input type="text" id="item-unit" placeholder="Unit (e.g., pcs, box, kg)" required>
+                <button type="submit" class="btn">Save Item</button>
+            </form>
+        </div>
+    </div>
 
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>

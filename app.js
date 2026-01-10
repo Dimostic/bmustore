@@ -436,7 +436,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Form & Table Logic (Generic Handlers) ---
     const refreshTable = async (dbName) => {
         if (dataTables[dbName]) {
-            const data = await getAllRecords(dbName);
+            // Map dbName to actual store name (handle activityLog -> activity_log)
+            const storeNameMap = { 'activityLog': 'activity_log' };
+            const storeName = storeNameMap[dbName] || dbName;
+            const data = await getAllRecords(storeName);
             dataTables[dbName].clear().rows.add(data).draw();
         }
          // Refresh related components
@@ -467,6 +470,43 @@ document.addEventListener('DOMContentLoaded', () => {
             <button class="btn btn-sm btn-edit" data-db="${dbName}" data-id="${data.id}">Edit</button>
             <button class="btn btn-sm btn-danger btn-delete" data-db="${dbName}" data-id="${data.id}">Delete</button>
         `;
+    };
+
+    // Edit handlers for different record types
+    const editHandlers = {
+        grn: (doc) => {
+            $('#grn-id').val(doc.id);
+            $('#grn-supplier-name').val(doc.supplierName);
+            $('#grn-carrier').val(doc.carrier);
+            $('#grn-delivery-date').val(doc.deliveryDate);
+            $('#grn-drn-no').val(doc.drnNo);
+            $('#grn-lpo-no').val(doc.lpoNo);
+            $('#grn-issue-date').val(doc.issueDate);
+            openModal('grn');
+        },
+        srv: (doc) => {
+            $('#srv-id').val(doc.id);
+            $('#srv-doc-num').val(doc.docNum);
+            $('#srv-department').val(doc.department);
+            $('#srv-source').val(doc.source);
+            $('#srv-date').val(doc.date);
+            openModal('srv');
+        },
+        srf: (doc) => {
+            $('#srf-id').val(doc.id);
+            $('#srf-no').val(doc.srfNo);
+            $('#srf-department').val(doc.departmentUnit);
+            $('#srf-requester').val(doc.requesterName);
+            $('#srf-date').val(doc.date);
+            openModal('srf');
+        },
+        items: (doc) => {
+            $('#item-id').val(doc.id);
+            $('#item-code').val(doc.code);
+            $('#item-name').val(doc.name);
+            $('#item-unit').val(doc.unit);
+            openModal('item');
+        }
     };
     
     // --- DataTables Initializers ---
@@ -531,11 +571,23 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const tableId = `${dbName}-table`;
+        // Map dbName to actual table ID (handle hyphenated IDs)
+        const tableIdMap = {
+            'binCard': 'bin-card-table',
+            'activityLog': 'activity-log-table'
+        };
+        const tableId = tableIdMap[dbName] || `${dbName}-table`;
         const config = tableConfigs[dbName];
         if (!config) return;
 
-        const data = await getAllRecords(dbName);
+        // Check if table element exists
+        const tableEl = document.getElementById(tableId);
+        if (!tableEl) {
+            console.warn(`Table element #${tableId} not found`);
+            return;
+        }
+
+        const data = await getAllRecords(dbName === 'activityLog' ? 'activity_log' : dbName);
         const options = {
             data: data,
             columns: config.columns,
@@ -563,8 +615,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- GRN Logic ---
+    $('#add-grn-btn').on('click', function() {
+        $('#grn-form')[0].reset();
+        $('#grn-id').val('');
+        openModal('grn');
+    });
+
     $('#grn-form').on('submit', async function(e) {
         e.preventDefault();
+        const id = $('#grn-id').val();
         const grnData = {
             supplierName: $('#grn-supplier-name').val(),
             carrier: $('#grn-carrier').val(),
@@ -575,8 +634,13 @@ document.addEventListener('DOMContentLoaded', () => {
             createdAt: new Date().toISOString()
         };
         try {
-            await addRecord('grn', grnData);
-            showToast('GRN saved successfully!');
+            if (id) {
+                await updateRecord('grn', { id: Number(id), ...grnData });
+                showToast('GRN updated successfully!');
+            } else {
+                await addRecord('grn', grnData);
+                showToast('GRN saved successfully!');
+            }
             $('#grn-modal').hide();
             await refreshTable('grn');
         } catch (err) {
@@ -599,6 +663,70 @@ document.addEventListener('DOMContentLoaded', () => {
             ]
         });
     }
+
+    // --- SRV Logic ---
+    $('#add-srv-btn').on('click', function() {
+        $('#srv-form')[0].reset();
+        $('#srv-id').val('');
+        openModal('srv');
+    });
+
+    $('#srv-form').on('submit', async function(e) {
+        e.preventDefault();
+        const id = $('#srv-id').val();
+        const srvData = {
+            docNum: $('#srv-doc-num').val(),
+            department: $('#srv-department').val(),
+            source: $('#srv-source').val(),
+            date: $('#srv-date').val(),
+            createdAt: new Date().toISOString()
+        };
+        try {
+            if (id) {
+                await updateRecord('srv', { id: Number(id), ...srvData });
+                showToast('SRV updated successfully!');
+            } else {
+                await addRecord('srv', srvData);
+                showToast('SRV saved successfully!');
+            }
+            $('#srv-modal').hide();
+            await refreshTable('srv');
+        } catch (err) {
+            showToast('Error saving SRV: ' + err.message);
+        }
+    });
+
+    // --- SRF Logic ---
+    $('#add-srf-btn').on('click', function() {
+        $('#srf-form')[0].reset();
+        $('#srf-id').val('');
+        openModal('srf');
+    });
+
+    $('#srf-form').on('submit', async function(e) {
+        e.preventDefault();
+        const id = $('#srf-id').val();
+        const srfData = {
+            srfNo: $('#srf-no').val(),
+            departmentUnit: $('#srf-department').val(),
+            requesterName: $('#srf-requester').val(),
+            date: $('#srf-date').val(),
+            createdAt: new Date().toISOString()
+        };
+        try {
+            if (id) {
+                await updateRecord('srf', { id: Number(id), ...srfData });
+                showToast('SRF updated successfully!');
+            } else {
+                await addRecord('srf', srfData);
+                showToast('SRF saved successfully!');
+            }
+            $('#srf-modal').hide();
+            await refreshTable('srf');
+        } catch (err) {
+            showToast('Error saving SRF: ' + err.message);
+        }
+    });
 
     // --- Accessibility ---
     $(document).on('keydown', function(e) {
