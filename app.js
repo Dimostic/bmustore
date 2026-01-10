@@ -752,6 +752,9 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'activity-log':
                 initializeTable('activityLog');
                 break;
+            case 'user-management':
+                renderUserManagement();
+                break;
         }
     };
     
@@ -888,6 +891,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Form & Table Logic (Generic Handlers) ---
     const refreshTable = async (dbName) => {
         if (dataTables[dbName]) {
+            // binCard is computed, not a real store
+            if (dbName === 'binCard') {
+                await updateBinCard();
+                return;
+            }
             // Map dbName to actual store name (handle activityLog -> activity_log)
             const storeNameMap = { 'activityLog': 'activity_log' };
             const storeName = storeNameMap[dbName] || dbName;
@@ -898,7 +906,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (dbName === 'items') {
              await createItemDatalist(); // Recreate datalist when items change
         }
-        if (dbName === 'srv' || dbName === 'srf') {
+        if (dbName === 'srv' || dbName === 'srf' || dbName === 'grn') {
             await updateBinCard();
             if (isSectionActive('dashboard')) {
                 await initializeDashboardCharts();
@@ -1174,12 +1182,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Add event listeners for edit/delete after table is created (skip for binCard)
         if (dbName !== 'binCard') {
-            $(`#${tableId} tbody`).on('click', '.btn-delete', function () {
+            $(`#${tableId} tbody`).off('click', '.btn-delete').on('click', '.btn-delete', function () {
                 const id = $(this).data('id');
                 handleDelete(dbName, id);
             });
 
-            $(`#${tableId} tbody`).on('click', '.btn-edit', async function () {
+            $(`#${tableId} tbody`).off('click', '.btn-edit').on('click', '.btn-edit', async function () {
                 const id = $(this).data('id');
                 const storeNameMap = { 'activityLog': 'activity_log' };
                 const storeName = storeNameMap[dbName] || dbName;
@@ -1651,48 +1659,76 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- User Management Screen ---
     async function renderUserManagement() {
         const users = await getAllRecords('users');
-        const roles = await getAllRecords('roles');
-        let html = `<h2>User Management</h2><button id="add-user-btn" class="btn">Add User</button><table id="users-table" class="display"><thead><tr><th>Username</th><th>Role</th><th>Actions</th></tr></thead><tbody>`;
+        let html = `<table id="users-table" class="display" width="100%"><thead><tr><th>Username</th><th>Role</th><th>Actions</th></tr></thead><tbody>`;
         users.forEach(u => {
-            html += `<tr><td>${u.username}</td><td>${u.role}</td><td><button class="btn btn-secondary edit-user-btn" data-id="${u.id}">Edit</button> <button class="btn btn-danger delete-user-btn" data-id="${u.id}">Delete</button></td></tr>`;
+            html += `<tr><td>${u.username}</td><td>${u.role || 'user'}</td><td><button class="btn btn-sm btn-edit edit-user-btn" data-id="${u.id}">Edit</button> <button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}">Delete</button></td></tr>`;
         });
         html += '</tbody></table>';
-        $('#user-management-section').html(html);
-        $('#users-table').DataTable();
+        $('#user-management-content').html(html);
+        if ($.fn.DataTable.isDataTable('#users-table')) {
+            $('#users-table').DataTable().destroy();
+        }
+        $('#users-table').DataTable({
+            responsive: true,
+            order: [[0, 'asc']]
+        });
     }
 
-    // Show user management when admin clicks
-    $(document).on('click', '#manage-users-nav', function() {
-        $('.content-section').hide();
-        $('#user-management-section').show();
-        renderUserManagement();
-    });
-
-    // Add User Modal
+    // Add User Modal - using event delegation
     $(document).on('click', '#add-user-btn', function() {
-        const modal = `<div id="user-modal" class="modal" style="display:block;"><div class="modal-content"><span class="close-btn">&times;</span><form id="user-form"><h3>Add User</h3><label>Username</label><input type="text" id="new-username" required><label>Password</label><input type="password" id="new-password" required><label>Role</label><select id="new-role"></select><button type="submit" class="btn">Save</button></form></div></div>`;
+        const modal = `<div id="user-modal" class="modal" style="display:block;"><div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <div class="form-header"><h3>Add New User</h3></div>
+            <form id="user-form" style="padding: 20px;">
+                <div class="form-section">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Username <span class="required">*</span></label>
+                            <input type="text" id="new-username" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Password <span class="required">*</span></label>
+                            <input type="password" id="new-password" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Role</label>
+                            <select id="new-role">
+                                <option value="admin">Admin</option>
+                                <option value="storekeeper">Storekeeper</option>
+                                <option value="auditor">Auditor</option>
+                                <option value="user">User</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary close-btn-action">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save User</button>
+                </div>
+            </form>
+        </div></div>`;
         $('body').append(modal);
-        getAllRecords('roles').then(roles => {
-            roles.forEach(r => $('#new-role').append(`<option value="${r.roleName}">${r.roleName}</option>`));
-        });
     });
 
     // Save new user
     $(document).on('submit', '#user-form', async function(e) {
         e.preventDefault();
         await registerUser($('#new-username').val(), $('#new-password').val(), $('#new-role').val());
-        showToast('User added');
+        showToast('User added successfully!');
         $('#user-modal').remove();
         renderUserManagement();
     });
 
-    // Close user modal
-    $(document).on('click', '.close-btn', function() {
-        $(this).closest('.modal').remove();
+    // Close user modal - handle both close button and cancel button
+    $(document).on('click', '#user-modal .close-btn, #user-modal .close-btn-action', function() {
+        $('#user-modal').remove();
     });
 
     // Delete user
     $(document).on('click', '.delete-user-btn', async function() {
+        if (!confirm('Are you sure you want to delete this user?')) return;
         await deleteRecord('users', Number($(this).data('id')));
         showToast('User deleted');
         renderUserManagement();
@@ -1714,14 +1750,6 @@ document.addEventListener('DOMContentLoaded', () => {
         await fetchStoreFromRemote('items');
         await fetchStoreFromRemote('activity_log');
         showToast('All data updated from server');
-    });
-
-    // --- Add navigation for user management and sync ---
-    $(document).ready(function() {
-        // User management section is added to main content, not floating
-        if ($('#user-management-section').length === 0) {
-            $('main').append('<section id="user-management-section" class="content-section" style="display:none;"></section>');
-        }
     });
 
 });

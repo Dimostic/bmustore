@@ -52,6 +52,7 @@
                 <li><a href="#" class="nav-link" data-target="bin-card">Bin Card</a></li>
                 <li><a href="#" class="nav-link" data-target="items">Manage Items</a></li>
                 <li><a href="#" class="nav-link" data-target="activity-log">Activity Log</a></li>
+                <li><a href="#" class="nav-link" id="manage-users-nav" data-target="user-management">Users</a></li>
             </ul>
         </nav>
 
@@ -170,6 +171,19 @@
                 </div>
                 <table id="activity-log-table" class="display" width="100%"></table>
             </section>
+
+            <!-- User Management Section -->
+            <section id="user-management" class="content-section" style="display: none;">
+                <div class="section-header">
+                    <h2>User Management</h2>
+                    <div>
+                        <button id="add-user-btn" class="btn">Add New User</button>
+                    </div>
+                </div>
+                <div id="user-management-content">
+                    <table id="users-table" class="display" width="100%"></table>
+                </div>
+            </section>
         </main>
         <footer class="app-footer" aria-label="Application Footer">
             <p>Developed by: Dimie Ogoina</p>
@@ -189,6 +203,7 @@
                     <h3 id="grn-modal-title">GOODS RECEIVED NOTE (GRN)</h3>
                     <p class="form-subtitle">Bayelsa Medical University - Store Department</p>
                 </div>
+                <div class="modal-body">
                 <input type="hidden" id="grn-id">
                 
                 <!-- Header Info -->
@@ -315,6 +330,7 @@
                         </div>
                     </div>
                 </div>
+                </div><!-- End modal-body -->
 
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('grn')">Cancel</button>
@@ -333,6 +349,7 @@
                     <h3 id="srv-modal-title">STORE RECEIPT VOUCHER (SRV)</h3>
                     <p class="form-subtitle">Bayelsa Medical University - Store Department</p>
                 </div>
+                <div class="modal-body">
                 <input type="hidden" id="srv-id">
                 
                 <!-- Header Info -->
@@ -450,6 +467,7 @@
                         </div>
                     </div>
                 </div>
+                </div><!-- End modal-body -->
 
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('srv')">Cancel</button>
@@ -468,6 +486,7 @@
                     <h3 id="srf-modal-title">STORES REQUISITION FORM (SRF)</h3>
                     <p class="form-subtitle">Bayelsa Medical University - Store Department</p>
                 </div>
+                <div class="modal-body">
                 <input type="hidden" id="srf-id">
                 
                 <!-- Requester Info -->
@@ -593,6 +612,7 @@
                         </div>
                     </div>
                 </div>
+                </div><!-- End modal-body -->
 
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('srf')">Cancel</button>
@@ -610,6 +630,7 @@
                 <div class="form-header">
                     <h3 id="item-modal-title">Manage Item</h3>
                 </div>
+                <div class="modal-body">
                 <input type="hidden" id="item-id">
                 <div class="form-section">
                     <div class="form-row">
@@ -667,6 +688,7 @@
                         <textarea id="item-description" placeholder="Additional item details" rows="2"></textarea>
                     </div>
                 </div>
+                </div><!-- End modal-body -->
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('item')">Cancel</button>
                     <button type="submit" class="btn btn-primary">Save Item</button>
