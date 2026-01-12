@@ -335,34 +335,44 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Authentication ---
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
         const username = document.getElementById('username').value.trim();
         const password = document.getElementById('password').value;
         const errorEl = document.getElementById('login-error');
 
-        if (DUMMY_PASSWORDS[username] && DUMMY_PASSWORDS[username] === password) {
-            currentUser = username;
-            sessionStorage.setItem('currentUser', username);
-            loginPage.style.display = 'none';
-            appPage.style.display = 'block';
-            errorEl.textContent = '';
-            initializeApp();
-            logActivity('User Login', `User '${username}' logged in.`);
-        } else {
+        try {
+            // Use API authentication
+            const response = await authenticateUser(username, password);
+            if (response.success) {
+                currentUser = response.user.username;
+                sessionStorage.setItem('currentUser', response.user.username);
+                sessionStorage.setItem('userRole', response.user.role);
+                loginPage.style.display = 'none';
+                appPage.style.display = 'block';
+                errorEl.textContent = '';
+                await initializeApp();
+            }
+        } catch (err) {
+            console.error('Login error:', err);
             errorEl.textContent = 'Invalid username or password.';
         }
     };
 
-    const handleLogout = () => {
-        logActivity('User Logout', `User '${currentUser}' logged out.`);
+    const handleLogout = async () => {
+        try {
+            await logoutSession();
+        } catch (err) {
+            console.error('Logout error:', err);
+        }
         currentUser = null;
         sessionStorage.removeItem('currentUser');
+        sessionStorage.removeItem('userRole');
         loginPage.style.display = 'block';
         appPage.style.display = 'none';
         // Destroy DataTables and Charts to re-initialize on next login
-        Object.values(dataTables).forEach(table => table.destroy());
-        Object.values(charts).forEach(chart => chart.destroy());
+        Object.values(dataTables).forEach(table => { try { table.destroy(); } catch(e) {} });
+        Object.values(charts).forEach(chart => { try { chart.destroy(); } catch(e) {} });
         dataTables = {};
         charts = {};
     };
@@ -1594,67 +1604,31 @@ document.addEventListener('DOMContentLoaded', () => {
     loginForm.addEventListener('submit', handleLogin);
     logoutBtn.addEventListener('click', handleLogout);
 
-    // Check for existing session
-    if (sessionStorage.getItem('currentUser')) {
-        currentUser = sessionStorage.getItem('currentUser');
-        loginPage.style.display = 'none';
-        appPage.style.display = 'block';
-        initializeApp();
-    }
-
-    // --- Authentication Logic ---
-    $('#login-form').on('submit', async function(e) {
-        e.preventDefault();
-        const username = $('#username').val();
-        const password = $('#password').val();
+    // Check for existing session with server
+    const checkExistingSession = async () => {
         try {
-            const user = await authenticateUser(username, password);
-            currentSessionId = await createSession(user.id);
-            showToast('Login successful!');
-            logAudit('login', user.id, { username });
-            $('#login-page').hide();
-            $('#app').show();
-            // Optionally, show/hide features based on user.role
+            const response = await getSession();
+            if (response.authenticated) {
+                currentUser = response.user.username;
+                sessionStorage.setItem('currentUser', response.user.username);
+                sessionStorage.setItem('userRole', response.user.role);
+                loginPage.style.display = 'none';
+                appPage.style.display = 'block';
+                await initializeApp();
+            } else {
+                // Clear stale session data
+                sessionStorage.removeItem('currentUser');
+                sessionStorage.removeItem('userRole');
+            }
         } catch (err) {
-            showToast('Login failed: ' + err.message);
-            $('#login-error').text('Invalid username or password');
+            console.log('No active session');
+            sessionStorage.removeItem('currentUser');
+            sessionStorage.removeItem('userRole');
         }
-    });
-
-    $('#logout-btn').on('click', async function() {
-        if (currentSessionId) {
-            await logoutSession(currentSessionId);
-            logAudit('logout', null, {});
-            currentSessionId = null;
-        }
-        $('#app').hide();
-        $('#login-page').show();
-        showToast('Logged out');
-    });
-
-    // --- Registration (admin only, example) ---
-    async function ensureAdminUser() {
-        const users = await getAllRecords('users');
-        if (!users.some(u => u.username === 'admin')) {
-            await registerUser('admin', 'admin', 'admin');
-            await addRole('admin', ['manage_users', 'view_reports', 'edit_inventory']);
-            console.log('Default admin user created');
-        }
-    }
-    $(document).ready(function() {
-        ensureAdminUser();
-    });
-
-    // --- Role-based UI (example) ---
-    async function showFeaturesForRole(role) {
-        // Hide/show UI elements based on role permissions
-        const roleObj = await getRole(role);
-        if (!roleObj) return;
-        if (!roleObj.permissions.includes('manage_users')) {
-            $('#activity-log').hide();
-        }
-        // ...other UI logic...
-    }
+    };
+    
+    // Check session on page load
+    checkExistingSession();
 
     // --- User Management Screen ---
     async function renderUserManagement() {
