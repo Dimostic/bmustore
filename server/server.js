@@ -12,6 +12,9 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy (for secure cookies behind Nginx)
+app.set('trust proxy', 1);
+
 // Database connection pool
 const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
@@ -40,6 +43,7 @@ app.use(session({
     cookie: {
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
+        sameSite: 'lax',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
 }));
@@ -88,14 +92,21 @@ app.post('/api/auth/login', async (req, res) => {
         // Log activity
         await logActivity(user.id, 'LOGIN', `User ${username} logged in`);
         
-        res.json({
-            success: true,
-            user: {
-                id: user.id,
-                username: user.username,
-                role: user.role
-            },
-            sessionId
+        // Save session before sending response
+        req.session.save((err) => {
+            if (err) {
+                console.error('Session save error:', err);
+                return res.status(500).json({ error: 'Session error' });
+            }
+            res.json({
+                success: true,
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    role: user.role
+                },
+                sessionId
+            });
         });
     } catch (err) {
         console.error('Login error:', err);
