@@ -395,6 +395,42 @@ app.delete('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
+// --- Helper function to sanitize data for MySQL ---
+function sanitizeForMySQL(data) {
+    const result = {};
+    
+    // Fields to skip (auto-managed by MySQL)
+    const skipFields = ['created_at', 'updated_at', 'createdAt', 'updatedAt'];
+    
+    // Date fields that need special handling
+    const dateFields = [
+        'date', 'issue_date', 'delivery_date', 'order_date', 'invoice_date',
+        'certified_date', 'approval_date', 'issueDate', 'deliveryDate',
+        'orderDate', 'invoiceDate', 'certifiedDate', 'approvalDate'
+    ];
+    
+    for (const [key, value] of Object.entries(data)) {
+        // Skip auto-managed timestamp fields
+        if (skipFields.includes(key)) continue;
+        
+        // Handle date fields - convert empty strings to null
+        if (dateFields.includes(key)) {
+            if (value === '' || value === null || value === undefined) {
+                result[key] = null;
+            } else {
+                // Ensure date is in YYYY-MM-DD format (strip time if present)
+                const dateVal = String(value).split('T')[0];
+                result[key] = dateVal || null;
+            }
+        } else {
+            // For other fields, convert empty strings to null for consistency
+            result[key] = (value === '' ? null : value);
+        }
+    }
+    
+    return result;
+}
+
 // --- Generic CRUD Routes for Stores ---
 const stores = ['grn', 'srv', 'srf', 'items'];
 
@@ -436,7 +472,8 @@ stores.forEach(store => {
     // Create record
     app.post(`/api/${store}`, requireAuth, async (req, res) => {
         try {
-            const data = req.body;
+            let data = sanitizeForMySQL(req.body);
+            
             // Stringify JSON fields
             if (data.items) data.items = JSON.stringify(data.items);
             if (data.signatures) data.signatures = JSON.stringify(data.signatures);
@@ -463,14 +500,23 @@ stores.forEach(store => {
     app.put(`/api/${store}/:id`, requireAuth, async (req, res) => {
         try {
             const { id } = req.params;
-            const data = req.body;
+            let data = { ...req.body };
             delete data.id; // Remove id from update data
+            
+            // Sanitize data for MySQL (handles dates, removes auto-managed fields)
+            data = sanitizeForMySQL(data);
             
             // Stringify JSON fields
             if (data.items) data.items = JSON.stringify(data.items);
             if (data.signatures) data.signatures = JSON.stringify(data.signatures);
             
-            const setClause = Object.keys(data).map(key => `${key} = ?`).join(', ');
+            // Only proceed if there's data to update
+            const keys = Object.keys(data);
+            if (keys.length === 0) {
+                return res.json({ success: true, message: 'No fields to update' });
+            }
+            
+            const setClause = keys.map(key => `${key} = ?`).join(', ');
             const values = [...Object.values(data), id];
             
             await pool.execute(`UPDATE ${store} SET ${setClause} WHERE id = ?`, values);
@@ -599,6 +645,18 @@ app.get('/api/activity_log', requireAuth, async (req, res) => {
         res.json(rows);
     } catch (err) {
         console.error('Error fetching activity log:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Allow clients to log activity (optional - mainly handled server-side)
+app.post('/api/activity_log', requireAuth, async (req, res) => {
+    try {
+        const { action, details } = req.body;
+        await logActivity(req.session.userId, action || 'CLIENT_ACTION', details || 'Client-side activity');
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error logging activity:', err);
         res.status(500).json({ error: 'Server error' });
     }
 });
