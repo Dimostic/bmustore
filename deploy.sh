@@ -1,248 +1,228 @@
 #!/bin/bash
-# BMU Store - Complete Deployment Script
-# Run this from your Mac to deploy to VPS
+# BMU Store Deployment Script
+# Usage: ./deploy.sh [--full|--code|--restart|--logs|--status|--env]
 
 set -e
 
 # Configuration
-VPS_IP="168.231.115.240"
-VPS_USER="root"
-APP_DIR="/var/www/bmustore"
-LOCAL_DIR="/Users/BYSG/Documents/BMU/Store/BMU storeapp4"
+VPS_HOST="root@168.231.115.240"
+VPS_APP_DIR="/var/www/bmustore/server"
+VPS_ENV_BACKUP="/root/.bmustore-env-backup"
+LOCAL_SERVER_DIR="./server"
 DOMAIN="bmustore.mehetti.com"
-DB_NAME="bmustore_db"
-DB_USER="bmustore_user"
-DB_PASS="BMUStore@2026Secure!"
 
-echo "=========================================="
-echo "BMU Store Deployment to VPS"
-echo "=========================================="
-echo "VPS: ${VPS_USER}@${VPS_IP}"
-echo "Domain: ${DOMAIN}"
-echo "=========================================="
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-# Step 1: Prepare public directory with frontend files
-echo ""
-echo "[1/7] Preparing frontend files..."
-mkdir -p "${LOCAL_DIR}/server/public"
-cp "${LOCAL_DIR}/index.html" "${LOCAL_DIR}/server/public/"
-cp "${LOCAL_DIR}/style.css" "${LOCAL_DIR}/server/public/"
-cp "${LOCAL_DIR}/app.js" "${LOCAL_DIR}/server/public/"
-cp "${LOCAL_DIR}/manifest.json" "${LOCAL_DIR}/server/public/"
-cp "${LOCAL_DIR}/sw.js" "${LOCAL_DIR}/server/public/"
-cp "${LOCAL_DIR}/bmulogo.png" "${LOCAL_DIR}/server/public/" 2>/dev/null || true
-cp "${LOCAL_DIR}/favicon.ico" "${LOCAL_DIR}/server/public/" 2>/dev/null || true
-cp -r "${LOCAL_DIR}/icons" "${LOCAL_DIR}/server/public/" 2>/dev/null || true
+echo -e "${BLUE}========================================${NC}"
+echo -e "${BLUE}  BMU Store Deployment Script${NC}"
+echo -e "${BLUE}========================================${NC}"
 
-# Modify index.html to use api.js instead of idb.js
-echo "[1.5/7] Updating index.html to use API..."
-sed -i '' 's|<script src="idb.js"></script>|<script src="api.js"></script>|g' "${LOCAL_DIR}/server/public/index.html"
-
-echo "Frontend files prepared!"
-
-# Step 2: Setup VPS base system
-echo ""
-echo "[2/7] Setting up VPS base system..."
-sshpass -p "" ssh -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_IP} << 'REMOTE_SETUP'
-set -e
-
-# Update system
-echo "Updating system packages..."
-apt update && apt upgrade -y
-
-# Install required packages
-echo "Installing required packages..."
-apt install -y curl wget git nginx mysql-server certbot python3-certbot-nginx ufw
-
-# Install Node.js 20.x
-if ! command -v node &> /dev/null; then
-    echo "Installing Node.js 20.x..."
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    apt install -y nodejs
-fi
-
-echo "Node.js version: $(node -v)"
-echo "npm version: $(npm -v)"
-
-# Install PM2 globally
-npm install -g pm2
-
-# Configure firewall
-ufw allow 'Nginx Full'
-ufw allow OpenSSH
-echo "y" | ufw enable || true
-
-echo "Base system setup complete!"
-REMOTE_SETUP
-
-# Step 3: Configure MySQL
-echo ""
-echo "[3/7] Configuring MySQL database..."
-sshpass -p "" ssh ${VPS_USER}@${VPS_IP} << REMOTE_MYSQL
-set -e
-
-# Start MySQL
-systemctl start mysql
-systemctl enable mysql
-
-# Create database and user
-mysql -e "CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-mysql -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';"
-mysql -e "GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';"
-mysql -e "FLUSH PRIVILEGES;"
-
-echo "MySQL configured!"
-REMOTE_MYSQL
-
-# Step 4: Create app directory and transfer files
-echo ""
-echo "[4/7] Transferring application files..."
-sshpass -p "" ssh ${VPS_USER}@${VPS_IP} "mkdir -p ${APP_DIR}"
-
-# Transfer server directory
-sshpass -p "" scp -r "${LOCAL_DIR}/server" ${VPS_USER}@${VPS_IP}:${APP_DIR}/
-
-echo "Files transferred!"
-
-# Step 5: Setup database schema and install dependencies
-echo ""
-echo "[5/7] Setting up database and installing dependencies..."
-sshpass -p "" ssh ${VPS_USER}@${VPS_IP} << REMOTE_APP
-set -e
-
-cd ${APP_DIR}/server
-
-# Run database schema
-mysql ${DB_NAME} < database/schema.sql
-
-# Create .env file
-cat > .env << ENV
-DB_HOST=localhost
-DB_USER=${DB_USER}
-DB_PASSWORD=${DB_PASS}
-DB_NAME=${DB_NAME}
-DB_PORT=3306
-PORT=3000
-NODE_ENV=production
-SESSION_SECRET=bmu-store-$(openssl rand -hex 32)
-API_URL=https://${DOMAIN}/api
-ENV
-
-# Install Node.js dependencies
-npm install --production
-
-echo "App setup complete!"
-REMOTE_APP
-
-# Step 6: Configure Nginx
-echo ""
-echo "[6/7] Configuring Nginx..."
-sshpass -p "" ssh ${VPS_USER}@${VPS_IP} << 'REMOTE_NGINX'
-set -e
-
-cat > /etc/nginx/sites-available/bmustore << 'NGINX'
-server {
-    listen 80;
-    server_name bmustore.mehetti.com;
-    
-    root /var/www/bmustore/server/public;
-    index index.html;
-    
-    # Gzip compression
-    gzip on;
-    gzip_vary on;
-    gzip_min_length 1024;
-    gzip_proxied expired no-cache no-store private auth;
-    gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml application/javascript application/json;
-    
-    # Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    
-    # API proxy to Node.js backend
-    location /api {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 90;
-    }
-    
-    # Static files
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-    
-    # Cache static assets
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-        expires 30d;
-        add_header Cache-Control "public, immutable";
-    }
+# Function to show usage
+show_usage() {
+    echo ""
+    echo "Usage: $0 [option]"
+    echo ""
+    echo "Options:"
+    echo "  --full      Full deployment (backup .env, sync files, restore .env, npm install, restart)"
+    echo "  --code      Code only (sync files preserving .env, restart) [DEFAULT]"
+    echo "  --restart   Just restart the PM2 process"
+    echo "  --logs      Show recent logs"
+    echo "  --status    Show PM2 status"
+    echo "  --env       Update .env file on server from local .env.production"
+    echo "  --help      Show this help message"
+    echo ""
 }
-NGINX
 
-# Enable site
-ln -sf /etc/nginx/sites-available/bmustore /etc/nginx/sites-enabled/
-rm -f /etc/nginx/sites-enabled/default
+# Function to backup .env on VPS
+backup_env() {
+    echo -e "${YELLOW}→ Backing up .env file on VPS...${NC}"
+    ssh $VPS_HOST "if [ -f $VPS_APP_DIR/.env ]; then cp $VPS_APP_DIR/.env $VPS_ENV_BACKUP; echo 'Backup created at $VPS_ENV_BACKUP'; else echo 'No .env to backup'; fi"
+}
 
-# Test and restart nginx
-nginx -t
-systemctl restart nginx
-systemctl enable nginx
+# Function to restore .env on VPS
+restore_env() {
+    echo -e "${YELLOW}→ Restoring .env file on VPS...${NC}"
+    ssh $VPS_HOST "if [ -f $VPS_ENV_BACKUP ]; then cp $VPS_ENV_BACKUP $VPS_APP_DIR/.env; echo 'Restored from backup'; else echo 'No backup found'; fi"
+}
 
-echo "Nginx configured!"
-REMOTE_NGINX
+# Function to ensure .env exists with default values
+ensure_env() {
+    echo -e "${YELLOW}→ Ensuring .env file exists on VPS...${NC}"
+    ssh $VPS_HOST "if [ ! -f $VPS_APP_DIR/.env ]; then
+        echo 'Creating default .env file...'
+        cat > $VPS_APP_DIR/.env << 'ENVEOF'
+# Database Configuration
+DB_HOST=localhost
+DB_USER=bmustore_user
+DB_PASSWORD=BMUStore@2026Secure!
+DB_NAME=bmustore_db
+DB_PORT=3306
 
-# Step 7: Start application and get SSL
+# Server Configuration
+PORT=3001
+NODE_ENV=production
+
+# Session Secret
+SESSION_SECRET=bmu-store-session-secret-2026-secure
+
+# API Base URL
+API_URL=https://bmustore.mehetti.com/api
+ENVEOF
+        echo '.env file created with defaults'
+    else
+        echo '.env file exists'
+    fi"
+}
+
+# Function to sync code files (excluding .env and node_modules)
+sync_code() {
+    echo -e "${YELLOW}→ Syncing code to VPS (preserving .env)...${NC}"
+    
+    # Sync server directory excluding .env and node_modules
+    rsync -avz --progress \
+        --exclude '.env' \
+        --exclude 'node_modules' \
+        --exclude '.git' \
+        --exclude '*.log' \
+        --exclude '.DS_Store' \
+        --exclude 'package-lock.json' \
+        $LOCAL_SERVER_DIR/ $VPS_HOST:$VPS_APP_DIR/
+    
+    echo -e "${GREEN}✓ Code synced successfully${NC}"
+}
+
+# Function to install dependencies
+install_deps() {
+    echo -e "${YELLOW}→ Installing npm dependencies on VPS...${NC}"
+    ssh $VPS_HOST "cd $VPS_APP_DIR && npm install --production"
+    echo -e "${GREEN}✓ Dependencies installed${NC}"
+}
+
+# Function to restart PM2
+restart_pm2() {
+    echo -e "${YELLOW}→ Restarting PM2 process...${NC}"
+    ssh $VPS_HOST "cd $VPS_APP_DIR && pm2 delete bmustore 2>/dev/null || true && pm2 start server.js --name bmustore && pm2 save"
+    echo -e "${GREEN}✓ PM2 process restarted${NC}"
+}
+
+# Function to show logs
+show_logs() {
+    echo -e "${YELLOW}→ Recent PM2 logs:${NC}"
+    ssh $VPS_HOST "pm2 logs bmustore --lines 40 --nostream"
+}
+
+# Function to show status
+show_status() {
+    echo -e "${YELLOW}→ PM2 Status:${NC}"
+    ssh $VPS_HOST "pm2 status"
+}
+
+# Function to update .env from local file
+update_env() {
+    echo -e "${YELLOW}→ Updating .env file on VPS...${NC}"
+    
+    if [ -f "$LOCAL_SERVER_DIR/.env.production" ]; then
+        scp $LOCAL_SERVER_DIR/.env.production $VPS_HOST:$VPS_APP_DIR/.env
+        echo -e "${GREEN}✓ .env updated from .env.production${NC}"
+    elif [ -f ".env.production" ]; then
+        scp .env.production $VPS_HOST:$VPS_APP_DIR/.env
+        echo -e "${GREEN}✓ .env updated from .env.production${NC}"
+    else
+        echo -e "${RED}✗ No .env.production file found${NC}"
+        echo "Create server/.env.production or .env.production with your production settings"
+        exit 1
+    fi
+}
+
+# Function to test server health
+test_health() {
+    echo -e "${YELLOW}→ Testing server health...${NC}"
+    sleep 2
+    RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://$DOMAIN/api/health)
+    if [ "$RESPONSE" = "200" ]; then
+        echo -e "${GREEN}✓ Server is healthy (HTTP 200)${NC}"
+    else
+        echo -e "${RED}✗ Server returned HTTP $RESPONSE${NC}"
+        echo "Check logs with: $0 --logs"
+    fi
+}
+
+# Function for full deployment
+deploy_full() {
+    echo -e "${GREEN}Starting FULL deployment...${NC}"
+    echo ""
+    backup_env
+    sync_code
+    restore_env
+    ensure_env
+    install_deps
+    restart_pm2
+    test_health
+    echo ""
+    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}  Full Deployment Complete!${NC}"
+    echo -e "${GREEN}========================================${NC}"
+    show_status
+}
+
+# Function for code-only deployment
+deploy_code() {
+    echo -e "${GREEN}Starting CODE-ONLY deployment...${NC}"
+    echo ""
+    backup_env
+    sync_code
+    restore_env
+    ensure_env
+    restart_pm2
+    test_health
+    echo ""
+    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}  Code Deployment Complete!${NC}"
+    echo -e "${GREEN}========================================${NC}"
+    show_status
+}
+
+# Main script logic
+case "${1:-}" in
+    --full)
+        deploy_full
+        ;;
+    --code|"")
+        deploy_code
+        ;;
+    --restart)
+        restart_pm2
+        test_health
+        show_status
+        ;;
+    --logs)
+        show_logs
+        ;;
+    --status)
+        show_status
+        ;;
+    --env)
+        update_env
+        restart_pm2
+        test_health
+        ;;
+    --help|-h)
+        show_usage
+        ;;
+    *)
+        echo -e "${RED}Unknown option: $1${NC}"
+        show_usage
+        exit 1
+        ;;
+esac
+
 echo ""
-echo "[7/7] Starting application and configuring SSL..."
-sshpass -p "" ssh ${VPS_USER}@${VPS_IP} << REMOTE_START
-set -e
-
-cd ${APP_DIR}/server
-
-# Stop any existing instance
-pm2 delete bmustore 2>/dev/null || true
-
-# Start the application
-pm2 start server.js --name bmustore
-
-# Save PM2 config and setup startup
-pm2 save
-pm2 startup systemd -u root --hp /root
-
-# Get SSL certificate
-certbot --nginx -d ${DOMAIN} --non-interactive --agree-tos --email admin@mehetti.com --redirect || echo "SSL setup may need manual intervention"
-
-# Restart nginx after SSL
-systemctl restart nginx
-
-echo ""
-echo "=========================================="
-echo "DEPLOYMENT COMPLETE!"
-echo "=========================================="
-echo ""
-echo "Your BMU Store app is now live at:"
-echo "  https://${DOMAIN}"
-echo ""
-echo "Default login credentials:"
-echo "  admin / password123"
-echo "  storekeeper / store123"
-echo "  auditor / audit123"
-echo ""
-echo "PM2 Commands:"
-echo "  pm2 logs bmustore    - View logs"
-echo "  pm2 restart bmustore - Restart app"
-echo "  pm2 status           - Check status"
-echo "=========================================="
-REMOTE_START
-
-echo ""
-echo "Deployment script completed!"
-echo "Visit https://${DOMAIN} to access your app."
+echo -e "${BLUE}═══════════════════════════════════════════${NC}"
+echo -e "${BLUE}  App URL:    https://${DOMAIN}${NC}"
+echo -e "${BLUE}  DB Admin:   https://db.${DOMAIN}${NC}"
+echo -e "${BLUE}═══════════════════════════════════════════${NC}"
