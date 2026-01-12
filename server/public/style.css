@@ -703,7 +703,7 @@ main {
 
 .form-section {
     background: var(--bg-tertiary);
-    border-radius: var(--radius-lg);
+    border-radius: var (--radius-lg);
     padding: var(--space-5);
     margin-bottom: var(--space-5);
     border-left: 4px solid var(--lemon-green);
@@ -1805,5 +1805,215 @@ input[list] {
     .camera-container video,
     .camera-container img {
         max-height: 300px;
+    }
+}
+
+/* ============================================
+   VIEW RECORD MODAL
+   ============================================ */
+.view-record-container {
+    padding: 0;
+}
+
+.view-record-header {
+    text-align: center;
+    padding: var(--space-5);
+    background: linear-gradient(135deg, var(--royal-blue) 0%, var(--royal-blue-dark) 100%);
+    color: white;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.view-record-header h3 {
+    color: white;
+    font-size: 1.25rem;
+    margin-bottom: var(--space-1);
+}
+
+.view-subtitle {
+    opacity: 0.9;
+    font-size: 0.875rem;
+}
+
+.view-record-body {
+    padding: var(--space-5);
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.view-section {
+    margin-bottom: var(--space-5);
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: var(--space-4);
+}
+
+.view-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.view-section h4 {
+    background: var(--bg-tertiary);
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.9rem;
+    color: var(--royal-blue);
+    border-left: 3px solid var(--royal-blue);
+    margin-bottom: var (--space-3);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.view-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+}
+
+.view-field {
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-2) 0;
+}
+
+.view-field.full-width {
+    grid-column: span 2;
+}
+
+.view-field label {
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--space-1);
+}
+
+.view-field span {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.view-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: var(--space-2);
+    font-size: 0.875rem;
+}
+
+.view-items-table th,
+.view-items-table td {
+    border: 1px solid var(--border-light);
+    padding: var(--space-2) var(--space-3);
+    text-align: left;
+}
+
+.view-items-table th {
+    background: var(--royal-blue);
+    color: white;
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.view-items-table tbody tr:nth-child(even) {
+    background: var(--bg-tertiary);
+}
+
+.view-items-table tbody tr:hover {
+    background: var(--royal-blue-50);
+}
+
+.view-items-table tfoot {
+    background: var(--bg-tertiary);
+    font-weight: 600;
+}
+
+.view-signature {
+    margin-top: var(--space-3);
+    padding: var(--space-3);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    display: inline-block;
+}
+
+.view-signature label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: var(--space-2);
+}
+
+.view-signature img {
+    max-width: 200px;
+    max-height: 80px;
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-sm);
+    background: white;
+}
+
+.view-item-image {
+    text-align: center;
+    margin-bottom: var(--space-4);
+}
+
+.view-item-image img {
+    max-width: 200px;
+    max-height: 200px;
+    border: 2px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+}
+
+.view-record-actions {
+    background: var(--bg-tertiary);
+    border-top: 1px solid var(--border-light);
+    padding: var(--space-4);
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+/* Action buttons in table - compact style */
+.btn-view {
+    background: var(--info);
+    color: white;
+}
+
+.btn-view:hover {
+    background: #0369a1;
+}
+
+/* Responsive view modal */
+@media (max-width: 768px) {
+    .view-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .view-field.full-width {
+        grid-column: span 1;
+    }
+    
+    .view-items-table {
+        font-size: 0.75rem;
+    }
+    
+    .view-items-table th,
+    .view-items-table td {
+        padding: var(--space-1) var(--space-2);
+    }
+    
+    .view-record-actions {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}
+
+@media print {
+    .view-record-actions {
+        display: none;
+    }
+    
+    .view-record-body {
+        max-height: none;
+        overflow: visible;
     }
 }

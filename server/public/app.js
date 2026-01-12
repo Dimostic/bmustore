@@ -1286,9 +1286,371 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const createActionButtons = (dbName, data) => {
         return `
-            <button class="btn btn-sm btn-edit" data-db="${dbName}" data-id="${data.id}">Edit</button>
-            <button class="btn btn-sm btn-danger btn-delete" data-db="${dbName}" data-id="${data.id}">Delete</button>
+            <button class="btn btn-sm btn-info btn-view" data-db="${dbName}" data-id="${data.id}" title="View Details"><i class="fas fa-eye"></i></button>
+            <button class="btn btn-sm btn-edit" data-db="${dbName}" data-id="${data.id}" title="Edit"><i class="fas fa-edit"></i></button>
+            <button class="btn btn-sm btn-danger btn-delete" data-db="${dbName}" data-id="${data.id}" title="Delete"><i class="fas fa-trash"></i></button>
         `;
+    };
+    
+    // --- View Record Modal ---
+    const viewRecordTemplates = {
+        grn: (doc) => `
+            <div class="view-record-header">
+                <h3>GOODS RECEIVED NOTE (GRN)</h3>
+                <p class="view-subtitle">Bugema University - Store Department</p>
+            </div>
+            <div class="view-record-body">
+                <div class="view-section">
+                    <h4>Header Information</h4>
+                    <div class="view-grid">
+                        <div class="view-field"><label>GRN/DRN No:</label><span>${doc.drnNo || '-'}</span></div>
+                        <div class="view-field"><label>LPO No:</label><span>${doc.lpoNo || '-'}</span></div>
+                        <div class="view-field"><label>Issue Date:</label><span>${doc.issueDate || '-'}</span></div>
+                        <div class="view-field"><label>Delivery Date:</label><span>${doc.deliveryDate || '-'}</span></div>
+                    </div>
+                </div>
+                <div class="view-section">
+                    <h4>Supplier Information</h4>
+                    <div class="view-grid">
+                        <div class="view-field"><label>Supplier Name:</label><span>${doc.supplierName || '-'}</span></div>
+                        <div class="view-field"><label>Carrier:</label><span>${doc.carrier || '-'}</span></div>
+                        <div class="view-field"><label>Waybill No:</label><span>${doc.waybillNo || '-'}</span></div>
+                        <div class="view-field"><label>Invoice No:</label><span>${doc.invoiceNo || '-'}</span></div>
+                    </div>
+                </div>
+                <div class="view-section">
+                    <h4>Items Received</h4>
+                    <table class="view-items-table">
+                        <thead>
+                            <tr>
+                                <th>S/No</th>
+                                <th>Description</th>
+                                <th>Code</th>
+                                <th>Qty Ordered</th>
+                                <th>Qty Received</th>
+                                <th>Unit</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${(doc.items || []).map((item, i) => `
+                                <tr>
+                                    <td>${item.sno || i + 1}</td>
+                                    <td>${item.description || '-'}</td>
+                                    <td>${item.code || '-'}</td>
+                                    <td>${item.qtyOrdered || 0}</td>
+                                    <td>${item.qtyReceived || 0}</td>
+                                    <td>${item.unit || '-'}</td>
+                                    <td>${item.remark || '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="view-section">
+                    <h4>Verification & Examination</h4>
+                    <div class="view-grid">
+                        <div class="view-field"><label>Examined By:</label><span>${doc.examinedBy || '-'}</span></div>
+                        <div class="view-field"><label>Department:</label><span>${doc.examinedDept || '-'}</span></div>
+                        <div class="view-field"><label>Received By:</label><span>${doc.receivedBy || '-'}</span></div>
+                        <div class="view-field"><label>Department:</label><span>${doc.receivedDept || '-'}</span></div>
+                    </div>
+                    ${doc.examinedSig ? `<div class="view-signature"><label>Examined Signature:</label><img src="${doc.examinedSig}" alt="Signature"></div>` : ''}
+                    ${doc.receivedSig ? `<div class="view-signature"><label>Received Signature:</label><img src="${doc.receivedSig}" alt="Signature"></div>` : ''}
+                </div>
+                <div class="view-section">
+                    <h4>Distribution</h4>
+                    <div class="view-field full-width"><span>${doc.distribution || '-'}</span></div>
+                </div>
+            </div>
+        `,
+        srv: (doc) => `
+            <div class="view-record-header">
+                <h3>STORE RECEIPT VOUCHER (SRV)</h3>
+                <p class="view-subtitle">Bugema University - Store Department</p>
+            </div>
+            <div class="view-record-body">
+                <div class="view-section">
+                    <h4>Header Information</h4>
+                    <div class="view-grid">
+                        <div class="view-field"><label>SRV No:</label><span>${doc.docNum || '-'}</span></div>
+                        <div class="view-field"><label>Date:</label><span>${doc.date || '-'}</span></div>
+                        <div class="view-field"><label>PO/LSO No:</label><span>${doc.poLsoNo || '-'}</span></div>
+                        <div class="view-field"><label>Department:</label><span>${doc.department || '-'}</span></div>
+                        <div class="view-field"><label>Source:</label><span>${doc.source || '-'}</span></div>
+                    </div>
+                </div>
+                <div class="view-section">
+                    <h4>Items</h4>
+                    <table class="view-items-table">
+                        <thead>
+                            <tr>
+                                <th>S/No</th>
+                                <th>Description</th>
+                                <th>Code</th>
+                                <th>Unit</th>
+                                <th>Qty</th>
+                                <th>Unit Price</th>
+                                <th>Value</th>
+                                <th>Ledger Folio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${(doc.items || []).map((item, i) => `
+                                <tr>
+                                    <td>${item.sno || i + 1}</td>
+                                    <td>${item.description || '-'}</td>
+                                    <td>${item.code || '-'}</td>
+                                    <td>${item.unit || '-'}</td>
+                                    <td>${item.quantity || 0}</td>
+                                    <td>${formatCurrency(item.unitPrice || 0)}</td>
+                                    <td>${formatCurrency(item.value || 0)}</td>
+                                    <td>${item.ledgerFolio || '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="6" class="text-right"><strong>Total Value:</strong></td>
+                                <td colspan="2"><strong>${formatCurrency(doc.totalValue || 0)}</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div class="view-section">
+                    <h4>Reference Information</h4>
+                    <div class="view-grid">
+                        <div class="view-field"><label>Order No:</label><span>${doc.orderNo || '-'}</span></div>
+                        <div class="view-field"><label>Order Date:</label><span>${doc.orderDate || '-'}</span></div>
+                        <div class="view-field"><label>Invoice No:</label><span>${doc.invoiceNo || '-'}</span></div>
+                        <div class="view-field"><label>Invoice Date:</label><span>${doc.invoiceDate || '-'}</span></div>
+                    </div>
+                </div>
+                <div class="view-section">
+                    <h4>Certification</h4>
+                    <div class="view-grid">
+                        <div class="view-field"><label>Certified By:</label><span>${doc.certifiedBy || '-'}</span></div>
+                        <div class="view-field"><label>Designation:</label><span>${doc.certifiedDesignation || '-'}</span></div>
+                        <div class="view-field"><label>Date:</label><span>${doc.certifiedDate || '-'}</span></div>
+                    </div>
+                    ${doc.certifiedSig ? `<div class="view-signature"><label>Signature:</label><img src="${doc.certifiedSig}" alt="Signature"></div>` : ''}
+                </div>
+            </div>
+        `,
+        srf: (doc) => `
+            <div class="view-record-header">
+                <h3>STORES REQUISITION FORM (SRF)</h3>
+                <p class="view-subtitle">Bugema University - Store Department</p>
+            </div>
+            <div class="view-record-body">
+                <div class="view-section">
+                    <h4>Requester Information</h4>
+                    <div class="view-grid">
+                        <div class="view-field"><label>SRF No:</label><span>${doc.srfNo || '-'}</span></div>
+                        <div class="view-field"><label>Date:</label><span>${doc.date || '-'}</span></div>
+                        <div class="view-field"><label>Cost Code:</label><span>${doc.costCode || '-'}</span></div>
+                        <div class="view-field"><label>Department/Unit:</label><span>${doc.departmentUnit || '-'}</span></div>
+                        <div class="view-field"><label>Requester Name:</label><span>${doc.requesterName || '-'}</span></div>
+                        <div class="view-field"><label>Designation:</label><span>${doc.designation || '-'}</span></div>
+                    </div>
+                </div>
+                <div class="view-section">
+                    <h4>Items Requested</h4>
+                    <table class="view-items-table">
+                        <thead>
+                            <tr>
+                                <th>S/No</th>
+                                <th>Description</th>
+                                <th>Code</th>
+                                <th>Unit</th>
+                                <th>Qty Requested</th>
+                                <th>Qty Issued</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${(doc.items || []).map((item, i) => `
+                                <tr>
+                                    <td>${item.sno || i + 1}</td>
+                                    <td>${item.description || '-'}</td>
+                                    <td>${item.code || '-'}</td>
+                                    <td>${item.unit || '-'}</td>
+                                    <td>${item.qtyRequested || 0}</td>
+                                    <td>${item.qtyIssued || 0}</td>
+                                    <td>${item.remarks || '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="view-section">
+                    <h4>Approval</h4>
+                    <div class="view-grid">
+                        <div class="view-field"><label>Approved By:</label><span>${doc.approvedBy || '-'}</span></div>
+                        <div class="view-field"><label>Approval Date:</label><span>${doc.approvalDate || '-'}</span></div>
+                    </div>
+                    ${doc.approvalSig ? `<div class="view-signature"><label>Approval Signature:</label><img src="${doc.approvalSig}" alt="Signature"></div>` : ''}
+                </div>
+                <div class="view-section">
+                    <h4>Store Processing</h4>
+                    <div class="view-grid">
+                        <div class="view-field"><label>Issued By:</label><span>${doc.issuedBy || '-'}</span></div>
+                        <div class="view-field"><label>Issue Date:</label><span>${doc.issueDate || '-'}</span></div>
+                        <div class="view-field"><label>Received By:</label><span>${doc.receivedBy || '-'}</span></div>
+                    </div>
+                    ${doc.storeSig ? `<div class="view-signature"><label>Store Signature:</label><img src="${doc.storeSig}" alt="Signature"></div>` : ''}
+                    ${doc.receiverSig ? `<div class="view-signature"><label>Receiver Signature:</label><img src="${doc.receiverSig}" alt="Signature"></div>` : ''}
+                </div>
+            </div>
+        `,
+        items: (doc) => `
+            <div class="view-record-header">
+                <h3>ITEM DETAILS</h3>
+                <p class="view-subtitle">Inventory Master Record</p>
+            </div>
+            <div class="view-record-body">
+                <div class="view-section">
+                    ${doc.image_url ? `<div class="view-item-image"><img src="${doc.image_url}" alt="${doc.name}"></div>` : ''}
+                    <div class="view-grid">
+                        <div class="view-field"><label>Item Code:</label><span>${doc.code || '-'}</span></div>
+                        <div class="view-field"><label>Item Name:</label><span>${doc.name || '-'}</span></div>
+                        <div class="view-field"><label>Unit:</label><span>${doc.unit || '-'}</span></div>
+                        <div class="view-field"><label>Category:</label><span>${doc.category || '-'}</span></div>
+                        <div class="view-field"><label>Min Stock Level:</label><span>${doc.minStock || 0}</span></div>
+                        <div class="view-field"><label>Storage Location:</label><span>${doc.location || '-'}</span></div>
+                        <div class="view-field full-width"><label>Description:</label><span>${doc.description || '-'}</span></div>
+                        <div class="view-field"><label>Created:</label><span>${doc.createdAt ? new Date(doc.createdAt).toLocaleString() : '-'}</span></div>
+                        <div class="view-field"><label>Last Updated:</label><span>${doc.updatedAt ? new Date(doc.updatedAt).toLocaleString() : '-'}</span></div>
+                    </div>
+                </div>
+            </div>
+        `
+    };
+    
+    const openViewModal = async (dbName, id) => {
+        const storeNameMap = { 'activityLog': 'activity_log' };
+        const storeName = storeNameMap[dbName] || dbName;
+        
+        try {
+            const records = await getAllRecords(storeName);
+            const doc = records.find(r => r.id === id);
+            
+            if (!doc) {
+                showToast('Record not found');
+                return;
+            }
+            
+            const template = viewRecordTemplates[dbName];
+            if (!template) {
+                showToast('View not available for this record type');
+                return;
+            }
+            
+            const titleMap = {
+                grn: 'Goods Received Note',
+                srv: 'Store Receipt Voucher',
+                srf: 'Stores Requisition Form',
+                items: 'Item Details'
+            };
+            
+            const content = template(doc);
+            
+            // Create modal HTML
+            const modalHtml = `
+                <div id="view-record-modal" class="modal" style="display:block;">
+                    <div class="modal-content modal-large">
+                        <span class="close-btn" onclick="document.getElementById('view-record-modal').remove()">&times;</span>
+                        <div id="view-record-content" class="view-record-container">
+                            ${content}
+                        </div>
+                        <div class="form-actions view-record-actions">
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('view-record-modal').remove()">Close</button>
+                            <button type="button" class="btn btn-info" onclick="printRecord()"><i class="fas fa-print"></i> Print</button>
+                            <button type="button" class="btn btn-danger" onclick="exportRecordPDF('${titleMap[dbName]}')"><i class="fas fa-file-pdf"></i> Export PDF</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing modal if any
+            const existingModal = document.getElementById('view-record-modal');
+            if (existingModal) existingModal.remove();
+            
+            // Add modal to body
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+        } catch (err) {
+            console.error('Error opening view modal:', err);
+            showToast('Error loading record');
+        }
+    };
+    
+    // Print record function
+    window.printRecord = () => {
+        const content = document.getElementById('view-record-content');
+        if (!content) return;
+        
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>BMU Store - Print Record</title>
+                <style>
+                    * { box-sizing: border-box; margin: 0; padding: 0; }
+                    body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+                    .view-record-header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #1e3c72; padding-bottom: 15px; }
+                    .view-record-header h3 { color: #1e3c72; font-size: 18px; margin-bottom: 5px; }
+                    .view-subtitle { color: #666; font-size: 12px; }
+                    .view-section { margin-bottom: 20px; }
+                    .view-section h4 { background: #f5f5f5; padding: 8px 12px; font-size: 14px; color: #1e3c72; border-left: 3px solid #1e3c72; margin-bottom: 10px; }
+                    .view-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+                    .view-field { display: flex; flex-direction: column; padding: 5px 0; }
+                    .view-field.full-width { grid-column: span 2; }
+                    .view-field label { font-weight: bold; font-size: 11px; color: #666; margin-bottom: 2px; }
+                    .view-field span { font-size: 13px; }
+                    .view-items-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+                    .view-items-table th, .view-items-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    .view-items-table th { background: #1e3c72; color: white; }
+                    .view-items-table tbody tr:nth-child(even) { background: #f9f9f9; }
+                    .view-signature { margin-top: 10px; }
+                    .view-signature label { font-weight: bold; font-size: 11px; color: #666; }
+                    .view-signature img { max-width: 200px; max-height: 80px; border: 1px solid #ddd; margin-top: 5px; }
+                    .view-item-image { text-align: center; margin-bottom: 15px; }
+                    .view-item-image img { max-width: 200px; max-height: 200px; border: 1px solid #ddd; border-radius: 8px; }
+                    .text-right { text-align: right; }
+                    @media print { body { padding: 0; } }
+                </style>
+            </head>
+            <body>
+                ${content.innerHTML}
+                <script>window.onload = function() { window.print(); }</script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+    
+    // Export record as PDF using pdfmake
+    window.exportRecordPDF = (title) => {
+        const content = document.getElementById('view-record-content');
+        if (!content) return;
+        
+        // Use html2canvas and jsPDF if available, otherwise use print
+        if (typeof html2canvas !== 'undefined' && typeof jspdf !== 'undefined') {
+            html2canvas(content).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
+                const imgWidth = 190;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+                pdf.save(`${title.replace(/\s+/g, '_')}_${Date.now()}.pdf`);
+            });
+        } else {
+            // Fallback to print as PDF
+            showToast('Please use Print and save as PDF');
+            printRecord();
+        }
     };
 
     // Edit handlers for different record types
@@ -1604,7 +1966,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         dataTables[dbName] = $(`#${tableId}`).DataTable(options);
         
-        // Add event listeners for edit/delete after table is created (skip for binCard)
+        // Add event listeners for view/edit/delete after table is created (skip for binCard)
         if (dbName !== 'binCard') {
             $(`#${tableId} tbody`).off('click', '.btn-delete').on('click', '.btn-delete', function () {
                 const id = $(this).data('id');
@@ -1620,6 +1982,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (editHandlers[dbName]) {
                     editHandlers[dbName](doc);
                 }
+            });
+            
+            // View button handler
+            $(`#${tableId} tbody`).off('click', '.btn-view').on('click', '.btn-view', function () {
+                const id = $(this).data('id');
+                openViewModal(dbName, id);
             });
         }
     };
