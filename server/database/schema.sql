@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS items (
     min_stock INT DEFAULT 0,
     location VARCHAR(100),
     description TEXT,
+    image_url VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_code (code),

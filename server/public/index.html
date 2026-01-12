@@ -697,6 +697,31 @@
                         <label for="item-description">Description</label>
                         <textarea id="item-description" placeholder="Additional item details" rows="2"></textarea>
                     </div>
+                    
+                    <!-- Image Upload Section -->
+                    <div class="form-group">
+                        <label>Item Image</label>
+                        <div class="image-upload-container">
+                            <div class="image-preview-box" id="item-image-preview">
+                                <i class="fas fa-image"></i>
+                                <span>No image</span>
+                            </div>
+                            <div class="image-upload-actions">
+                                <label for="item-image-upload" class="btn btn-secondary btn-sm">
+                                    <i class="fas fa-upload"></i> Upload Image
+                                </label>
+                                <input type="file" id="item-image-upload" accept="image/*" style="display:none;">
+                                <button type="button" id="item-camera-btn" class="btn btn-info btn-sm">
+                                    <i class="fas fa-camera"></i> Take Photo
+                                </button>
+                                <button type="button" id="item-remove-image-btn" class="btn btn-danger btn-sm" style="display:none;">
+                                    <i class="fas fa-trash"></i> Remove
+                                </button>
+                            </div>
+                            <input type="hidden" id="item-image-data">
+                            <small class="text-muted">Max 2MB. Supported: JPG, PNG, GIF, WebP</small>
+                        </div>
+                    </div>
                 </div>
                 </div><!-- End modal-body -->
                 <div class="form-actions">
@@ -729,6 +754,33 @@
         </div>
     </div>
 
+    <!-- Camera Capture Modal -->
+    <div id="camera-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="camera-modal-title">
+        <div class="modal-content">
+            <span class="close-btn" tabindex="0" aria-label="Close Camera Modal">&times;</span>
+            <h3 id="camera-modal-title"><i class="fas fa-camera"></i> Capture Item Photo</h3>
+            <div class="camera-container">
+                <video id="camera-video" autoplay playsinline></video>
+                <canvas id="camera-canvas" style="display:none;"></canvas>
+                <div id="camera-preview" style="display:none;">
+                    <img id="captured-image" alt="Captured photo">
+                </div>
+            </div>
+            <div class="form-actions camera-actions">
+                <button type="button" class="btn btn-secondary" id="camera-cancel-btn">Cancel</button>
+                <button type="button" class="btn btn-primary" id="camera-capture-btn">
+                    <i class="fas fa-camera"></i> Capture
+                </button>
+                <button type="button" class="btn btn-warning" id="camera-retake-btn" style="display:none;">
+                    <i class="fas fa-redo"></i> Retake
+                </button>
+                <button type="button" class="btn btn-success" id="camera-use-btn" style="display:none;">
+                    <i class="fas fa-check"></i> Use Photo
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <!-- DataTables Buttons Extension -->
@@ -748,20 +800,27 @@
     <script>
         // Register service worker for offline support
         if ('serviceWorker' in navigator) {
+            // Track if we've already shown the update notification
+            let updateNotificationShown = false;
+            
             window.addEventListener('load', async () => {
                 try {
                     const registration = await navigator.serviceWorker.register('/service-worker.js');
                     console.log('ServiceWorker registered:', registration.scope);
                     
-                    // Check for updates
+                    // Check for updates - only notify once per session
                     registration.addEventListener('updatefound', () => {
                         const newWorker = registration.installing;
                         newWorker.addEventListener('statechange', () => {
-                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                // New version available
-                                if (confirm('A new version of BMU Store is available. Reload to update?')) {
-                                    newWorker.postMessage({ type: 'SKIP_WAITING' });
-                                    window.location.reload();
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller && !updateNotificationShown) {
+                                updateNotificationShown = true;
+                                // Show a non-blocking toast instead of confirm dialog
+                                const toast = document.getElementById('toast');
+                                if (toast) {
+                                    toast.innerHTML = 'New version available! <button onclick="location.reload()" style="margin-left:10px;padding:2px 8px;background:#fff;color:#333;border:none;border-radius:4px;cursor:pointer;">Update</button>';
+                                    toast.style.display = 'block';
+                                    // Auto-hide after 10 seconds
+                                    setTimeout(() => { toast.style.display = 'none'; }, 10000);
                                 }
                             }
                         });

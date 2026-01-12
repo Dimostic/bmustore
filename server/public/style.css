@@ -1,4 +1,3 @@
-
 /* ============================================
    BMU STORE MANAGEMENT - ENTERPRISE DESIGN
    Professional Inventory Management System
@@ -1006,7 +1005,7 @@ textarea {
 .dataTables_wrapper .dataTables_paginate .paginate_button {
     padding: var(--space-2) var(--space-3);
     margin: 0 var(--space-1);
-    border-radius: var(--radius-md);
+    border-radius: var (--radius-md);
     border: 1px solid var(--border-light) !important;
     background: var(--surface) !important;
     color: var(--text-secondary) !important;
@@ -1248,7 +1247,7 @@ table.dataTable tbody tr.even {
 
 .badge-info {
     background: var(--info-light);
-    color: var(--info);
+    color: var (--info);
 }
 
 /* ============================================
@@ -1483,7 +1482,7 @@ table.dataTable tbody tr.even {
     z-index: 9999;
     background: var(--royal-blue);
     color: var(--text-white);
-    padding: var(--space-3) var(--space-6);
+    padding: var(--space-3) var (--space-6);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
     font-weight: 500;
@@ -1661,4 +1660,150 @@ input[list] {
     flex: 1;
     overflow-y: auto;
     padding: var(--space-5);
+}
+
+/* ============================================
+   IMAGE UPLOAD & CAMERA CAPTURE
+   ============================================ */
+.image-upload-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.image-preview-box {
+    width: 150px;
+    height: 150px;
+    border: 2px dashed var(--border-medium);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    overflow: hidden;
+    position: relative;
+}
+
+.image-preview-box i {
+    font-size: 2.5rem;
+    margin-bottom: var(--space-2);
+}
+
+.image-preview-box span {
+    font-size: 0.75rem;
+}
+
+.image-preview-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: var(--radius-md);
+}
+
+.image-preview-box.has-image {
+    border: 2px solid var(--success);
+}
+
+.image-preview-box.has-image i,
+.image-preview-box.has-image span {
+    display: none;
+}
+
+.image-upload-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.image-upload-actions label {
+    margin: 0;
+}
+
+/* Camera Modal */
+#camera-modal .modal-content {
+    max-width: 600px;
+}
+
+.camera-container {
+    position: relative;
+    width: 100%;
+    background: #000;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: var(--space-4);
+}
+
+.camera-container video,
+.camera-container img {
+    width: 100%;
+    max-height: 400px;
+    object-fit: contain;
+    display: block;
+}
+
+.camera-container #camera-preview {
+    width: 100%;
+}
+
+.camera-container #camera-preview img {
+    width: 100%;
+    height: auto;
+}
+
+.camera-actions {
+    justify-content: center;
+    gap: var(--space-3);
+}
+
+/* Camera permission denied message */
+.camera-error {
+    padding: var(--space-6);
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.camera-error i {
+    font-size: 3rem;
+    color: var(--warning);
+    margin-bottom: var(--space-3);
+    display: block;
+}
+
+/* Image in Items Table */
+.item-thumbnail {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-light);
+}
+
+.item-no-image {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+/* Responsive adjustments for image upload */
+@media (max-width: 480px) {
+    .image-upload-container {
+        align-items: center;
+    }
+    
+    .image-upload-actions {
+        justify-content: center;
+    }
+    
+    .camera-container video,
+    .camera-container img {
+        max-height: 300px;
+    }
 }

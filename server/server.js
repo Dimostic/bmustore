@@ -5,6 +5,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const session = require('express-session');
 const path = require('path');
+const fs = require('fs');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
@@ -495,6 +496,94 @@ stores.forEach(store => {
             res.status(500).json({ error: 'Server error' });
         }
     });
+});
+
+// --- Image Upload for Items ---
+const UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'items');
+
+// Ensure upload directory exists
+if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
+// Serve uploaded images
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
+
+// Upload item image (base64)
+app.post('/api/items/:id/image', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { imageData } = req.body;
+        
+        if (!imageData) {
+            return res.status(400).json({ error: 'No image data provided' });
+        }
+        
+        // Validate base64 image
+        const matches = imageData.match(/^data:image\/(jpeg|jpg|png|gif|webp);base64,(.+)$/);
+        if (!matches) {
+            return res.status(400).json({ error: 'Invalid image format. Supported: JPG, PNG, GIF, WebP' });
+        }
+        
+        const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+        const base64Data = matches[2];
+        const buffer = Buffer.from(base64Data, 'base64');
+        
+        // Check file size (max 2MB)
+        if (buffer.length > 2 * 1024 * 1024) {
+            return res.status(400).json({ error: 'Image too large. Maximum size is 2MB' });
+        }
+        
+        // Generate unique filename
+        const filename = `item_${id}_${Date.now()}.${ext}`;
+        const filepath = path.join(UPLOAD_DIR, filename);
+        
+        // Delete old image if exists
+        const [existingItem] = await pool.execute('SELECT image_url FROM items WHERE id = ?', [id]);
+        if (existingItem[0]?.image_url) {
+            const oldPath = path.join(__dirname, 'public', existingItem[0].image_url);
+            if (fs.existsSync(oldPath)) {
+                fs.unlinkSync(oldPath);
+            }
+        }
+        
+        // Save new image
+        fs.writeFileSync(filepath, buffer);
+        const imageUrl = `/uploads/items/${filename}`;
+        
+        // Update database
+        await pool.execute('UPDATE items SET image_url = ? WHERE id = ?', [imageUrl, id]);
+        
+        await logActivity(req.session.userId, 'ITEM_IMAGE_UPLOAD', `Uploaded image for item ID: ${id}`);
+        
+        res.json({ success: true, imageUrl });
+    } catch (err) {
+        console.error('Error uploading image:', err);
+        res.status(500).json({ error: 'Failed to upload image' });
+    }
+});
+
+// Delete item image
+app.delete('/api/items/:id/image', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const [item] = await pool.execute('SELECT image_url FROM items WHERE id = ?', [id]);
+        if (item[0]?.image_url) {
+            const filepath = path.join(__dirname, 'public', item[0].image_url);
+            if (fs.existsSync(filepath)) {
+                fs.unlinkSync(filepath);
+            }
+        }
+        
+        await pool.execute('UPDATE items SET image_url = NULL WHERE id = ?', [id]);
+        await logActivity(req.session.userId, 'ITEM_IMAGE_DELETE', `Deleted image for item ID: ${id}`);
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error deleting image:', err);
+        res.status(500).json({ error: 'Failed to delete image' });
+    }
 });
 
 // --- Activity Log ---

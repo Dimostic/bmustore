@@ -915,6 +915,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (itemIdEl) itemIdEl.value = '';
             // Generate code
             $('#item-code').val(generateDocNumber('ITM'));
+            // Reset image preview
+            resetItemImagePreview();
             openModal('item');
         });
 
@@ -935,16 +937,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 try {
+                    let savedId = id;
                     if (id) {
                         await updateRecord('items', { id: Number(id), ...itemData });
                         logActivity('Item Update', `Updated item: ${itemData.name} (${itemData.code})`);
                         showToast('Item updated successfully!');
                     } else {
                         itemData.createdAt = new Date().toISOString();
-                        await addRecord('items', itemData);
+                        savedId = await addRecord('items', itemData);
                         logActivity('Item Create', `Created new item: ${itemData.name} (${itemData.code})`);
                         showToast('Item created successfully!');
                     }
+                    
+                    // Handle image upload if there's new image data
+                    const imageData = document.getElementById('item-image-data')?.value;
+                    if (imageData && savedId) {
+                        try {
+                            await uploadItemImage(savedId, imageData);
+                        } catch (imgErr) {
+                            console.error('Error uploading image:', imgErr);
+                            showToast('Item saved but image upload failed');
+                        }
+                    }
+                    
                     closeModal('item');
                     await refreshTable('items');
                     // Update items cache
@@ -956,6 +971,256 @@ document.addEventListener('DOMContentLoaded', () => {
                     showToast('Error saving item: ' + err.message);
                 }
             });
+        }
+        
+        // Initialize image upload handlers
+        initializeItemImageHandlers();
+    };
+    
+    // --- Item Image Upload Functions ---
+    const resetItemImagePreview = () => {
+        const preview = document.getElementById('item-image-preview');
+        const removeBtn = document.getElementById('item-remove-image-btn');
+        const imageDataInput = document.getElementById('item-image-data');
+        
+        if (preview) {
+            preview.innerHTML = '<i class="fas fa-image"></i><span>No image</span>';
+            preview.classList.remove('has-image');
+        }
+        if (removeBtn) removeBtn.style.display = 'none';
+        if (imageDataInput) imageDataInput.value = '';
+    };
+    
+    const setItemImagePreview = (imageUrl) => {
+        const preview = document.getElementById('item-image-preview');
+        const removeBtn = document.getElementById('item-remove-image-btn');
+        
+        if (preview && imageUrl) {
+            preview.innerHTML = `<img src="${imageUrl}" alt="Item image">`;
+            preview.classList.add('has-image');
+        }
+        if (removeBtn) removeBtn.style.display = 'inline-flex';
+    };
+    
+    const uploadItemImage = async (itemId, imageData) => {
+        const response = await fetch(`/api/items/${itemId}/image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ imageData })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Upload failed');
+        }
+        
+        return response.json();
+    };
+    
+    const deleteItemImage = async (itemId) => {
+        const response = await fetch(`/api/items/${itemId}/image`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Delete failed');
+        }
+        
+        return response.json();
+    };
+    
+    const initializeItemImageHandlers = () => {
+        // File upload handler
+        const fileInput = document.getElementById('item-image-upload');
+        if (fileInput) {
+            fileInput.addEventListener('change', handleImageFileSelect);
+        }
+        
+        // Camera button handler
+        const cameraBtn = document.getElementById('item-camera-btn');
+        if (cameraBtn) {
+            cameraBtn.addEventListener('click', openCameraModal);
+        }
+        
+        // Remove image button
+        const removeBtn = document.getElementById('item-remove-image-btn');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', async () => {
+                const itemId = document.getElementById('item-id')?.value;
+                if (itemId) {
+                    try {
+                        await deleteItemImage(itemId);
+                        showToast('Image removed');
+                    } catch (err) {
+                        console.error('Error removing image:', err);
+                    }
+                }
+                resetItemImagePreview();
+            });
+        }
+        
+        // Camera modal handlers
+        initializeCameraModal();
+    };
+    
+    const handleImageFileSelect = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // Validate file type
+        if (!file.type.match(/^image\/(jpeg|jpg|png|gif|webp)$/i)) {
+            showToast('Invalid file type. Use JPG, PNG, GIF, or WebP');
+            return;
+        }
+        
+        // Validate file size (2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            showToast('Image too large. Maximum 2MB allowed');
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const imageData = evt.target.result;
+            document.getElementById('item-image-data').value = imageData;
+            setItemImagePreview(imageData);
+        };
+        reader.readAsDataURL(file);
+    };
+    
+    // --- Camera Capture Functions ---
+    let cameraStream = null;
+    
+    const openCameraModal = async () => {
+        const modal = document.getElementById('camera-modal');
+        const video = document.getElementById('camera-video');
+        const preview = document.getElementById('camera-preview');
+        const captureBtn = document.getElementById('camera-capture-btn');
+        const retakeBtn = document.getElementById('camera-retake-btn');
+        const useBtn = document.getElementById('camera-use-btn');
+        
+        // Reset state
+        if (preview) preview.style.display = 'none';
+        if (video) video.style.display = 'block';
+        if (captureBtn) captureBtn.style.display = 'inline-flex';
+        if (retakeBtn) retakeBtn.style.display = 'none';
+        if (useBtn) useBtn.style.display = 'none';
+        
+        try {
+            // Request camera access - prefer back camera on mobile
+            cameraStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment' },
+                audio: false
+            });
+            
+            if (video) {
+                video.srcObject = cameraStream;
+            }
+            
+            if (modal) modal.style.display = 'block';
+        } catch (err) {
+            console.error('Camera access denied:', err);
+            showToast('Camera access denied. Please allow camera permissions.');
+        }
+    };
+    
+    const closeCameraModal = () => {
+        const modal = document.getElementById('camera-modal');
+        if (modal) modal.style.display = 'none';
+        
+        // Stop camera stream
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+            cameraStream = null;
+        }
+    };
+    
+    const capturePhoto = () => {
+        const video = document.getElementById('camera-video');
+        const canvas = document.getElementById('camera-canvas');
+        const preview = document.getElementById('camera-preview');
+        const capturedImage = document.getElementById('captured-image');
+        const captureBtn = document.getElementById('camera-capture-btn');
+        const retakeBtn = document.getElementById('camera-retake-btn');
+        const useBtn = document.getElementById('camera-use-btn');
+        
+        if (!video || !canvas) return;
+        
+        // Set canvas size to video size
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        // Draw video frame to canvas
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        
+        // Get image data
+        const imageData = canvas.toDataURL('image/jpeg', 0.8);
+        
+        // Show preview
+        if (capturedImage) capturedImage.src = imageData;
+        if (video) video.style.display = 'none';
+        if (preview) preview.style.display = 'block';
+        if (captureBtn) captureBtn.style.display = 'none';
+        if (retakeBtn) retakeBtn.style.display = 'inline-flex';
+        if (useBtn) useBtn.style.display = 'inline-flex';
+    };
+    
+    const retakePhoto = () => {
+        const video = document.getElementById('camera-video');
+        const preview = document.getElementById('camera-preview');
+        const captureBtn = document.getElementById('camera-capture-btn');
+        const retakeBtn = document.getElementById('camera-retake-btn');
+        const useBtn = document.getElementById('camera-use-btn');
+        
+        if (video) video.style.display = 'block';
+        if (preview) preview.style.display = 'none';
+        if (captureBtn) captureBtn.style.display = 'inline-flex';
+        if (retakeBtn) retakeBtn.style.display = 'none';
+        if (useBtn) useBtn.style.display = 'none';
+    };
+    
+    const usePhoto = () => {
+        const capturedImage = document.getElementById('captured-image');
+        if (capturedImage && capturedImage.src) {
+            document.getElementById('item-image-data').value = capturedImage.src;
+            setItemImagePreview(capturedImage.src);
+        }
+        closeCameraModal();
+    };
+    
+    const initializeCameraModal = () => {
+        // Cancel button
+        const cancelBtn = document.getElementById('camera-cancel-btn');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', closeCameraModal);
+        }
+        
+        // Capture button
+        const captureBtn = document.getElementById('camera-capture-btn');
+        if (captureBtn) {
+            captureBtn.addEventListener('click', capturePhoto);
+        }
+        
+        // Retake button
+        const retakeBtn = document.getElementById('camera-retake-btn');
+        if (retakeBtn) {
+            retakeBtn.addEventListener('click', retakePhoto);
+        }
+        
+        // Use photo button
+        const useBtn = document.getElementById('camera-use-btn');
+        if (useBtn) {
+            useBtn.addEventListener('click', usePhoto);
+        }
+        
+        // Close button
+        const closeBtn = document.querySelector('#camera-modal .close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeCameraModal);
         }
     };
     
@@ -1111,6 +1376,13 @@ document.addEventListener('DOMContentLoaded', () => {
             $('#item-min-stock').val(doc.minStock);
             $('#item-location').val(doc.location);
             $('#item-description').val(doc.description);
+            
+            // Load image if exists
+            resetItemImagePreview();
+            if (doc.image_url) {
+                setItemImagePreview(doc.image_url);
+            }
+            
             openModal('item');
         }
     };
@@ -1168,6 +1440,12 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         items: {
             columns: [
+                { data: 'image_url', title: 'Image', render: (d) => {
+                    if (d) {
+                        return `<img src="${d}" alt="Item" class="item-thumbnail">`;
+                    }
+                    return '<div class="item-no-image"><i class="fas fa-image"></i></div>';
+                }},
                 { data: 'code', title: 'Code' },
                 { data: 'name', title: 'Name' },
                 { data: 'unit', title: 'Unit' },
