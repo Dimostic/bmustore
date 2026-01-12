@@ -1,7 +1,7 @@
 // Service Worker for BMU Store - Offline Support
 
-const CACHE_NAME = 'bmustore-v2';
-const OFFLINE_CACHE = 'bmustore-offline-v2';
+const CACHE_NAME = 'bmustore-v3';
+const OFFLINE_CACHE = 'bmustore-offline-v3';
 
 // Files to cache for offline use
 const STATIC_ASSETS = [
@@ -84,6 +84,16 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
     
+    // Skip non-http(s) requests (chrome-extension, etc.)
+    if (!url.protocol.startsWith('http')) {
+        return;
+    }
+    
+    // Skip cross-origin requests that aren't CDN assets
+    if (url.origin !== self.location.origin && !CDN_ASSETS.includes(event.request.url)) {
+        return;
+    }
+    
     // Skip non-GET requests
     if (event.request.method !== 'GET') {
         // For POST/PUT/DELETE, queue for offline sync if offline
@@ -109,8 +119,8 @@ self.addEventListener('fetch', (event) => {
                 }
                 return fetch(event.request)
                     .then((response) => {
-                        // Cache successful responses
-                        if (response && response.status === 200) {
+                        // Cache successful responses (only same-origin)
+                        if (response && response.status === 200 && url.origin === self.location.origin) {
                             const responseClone = response.clone();
                             caches.open(CACHE_NAME).then((cache) => {
                                 cache.put(event.request, responseClone);
