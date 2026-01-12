@@ -348,15 +348,97 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentUser = response.user.username;
                 sessionStorage.setItem('currentUser', response.user.username);
                 sessionStorage.setItem('userRole', response.user.role);
+                sessionStorage.setItem('userPermissions', JSON.stringify(response.user.permissions || {}));
                 loginPage.style.display = 'none';
                 appPage.style.display = 'block';
                 errorEl.textContent = '';
+                
+                // Apply role-based UI restrictions
+                applyRoleBasedUI(response.user.role, response.user.permissions);
+                
                 await initializeApp();
+                showToast(`Welcome, ${response.user.fullName || response.user.username}!`);
             }
         } catch (err) {
             console.error('Login error:', err);
-            errorEl.textContent = 'Invalid username or password.';
+            errorEl.textContent = err.message || 'Invalid username or password.';
         }
+    };
+
+    // Role-based UI control
+    const applyRoleBasedUI = (role, permissions) => {
+        const isAdmin = ['superadmin', 'admin'].includes(role);
+        const canCreate = isAdmin || ['storekeeper'].includes(role);
+        const canEdit = isAdmin || ['storekeeper'].includes(role);
+        const canDelete = isAdmin;
+        
+        // Show/hide User Management link based on role
+        const userMgmtLink = document.querySelector('[data-target="user-management"]');
+        if (userMgmtLink) {
+            userMgmtLink.parentElement.style.display = isAdmin ? 'block' : 'none';
+        }
+        
+        // Show/hide Activity Log based on role
+        const activityLogLink = document.querySelector('[data-target="activity-log"]');
+        if (activityLogLink) {
+            const canViewActivity = isAdmin || role === 'auditor';
+            activityLogLink.parentElement.style.display = canViewActivity ? 'block' : 'none';
+        }
+        
+        // Show/hide Add buttons based on role
+        document.querySelectorAll('.add-btn, [id$="-add-btn"]').forEach(btn => {
+            btn.style.display = canCreate ? 'inline-flex' : 'none';
+        });
+        
+        // Store permissions for later use
+        window.userPermissions = {
+            role,
+            permissions,
+            canCreate,
+            canEdit,
+            canDelete,
+            isAdmin
+        };
+        
+        // Update header with role badge
+        updateHeaderWithRole(role);
+    };
+    
+    // Update header with user role badge
+    const updateHeaderWithRole = (role) => {
+        const headerContent = document.querySelector('.header-content');
+        if (!headerContent) return;
+        
+        // Remove existing role badge
+        const existingBadge = headerContent.querySelector('.role-badge');
+        if (existingBadge) existingBadge.remove();
+        
+        // Create role badge
+        const roleBadge = document.createElement('span');
+        roleBadge.className = `role-badge role-${role}`;
+        roleBadge.innerHTML = `<i class="fas fa-user-shield"></i> ${role.charAt(0).toUpperCase() + role.slice(1)}`;
+        roleBadge.style.cssText = `
+            background: ${getRoleColor(role)};
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75em;
+            margin-left: 15px;
+            font-weight: 500;
+        `;
+        
+        headerContent.appendChild(roleBadge);
+    };
+    
+    const getRoleColor = (role) => {
+        const colors = {
+            superadmin: 'linear-gradient(135deg, #800020, #a00030)',
+            admin: 'linear-gradient(135deg, #1e3c72, #2a5298)',
+            storekeeper: 'linear-gradient(135deg, #27ae60, #2ecc71)',
+            auditor: 'linear-gradient(135deg, #8e44ad, #9b59b6)',
+            viewer: 'linear-gradient(135deg, #7f8c8d, #95a5a6)'
+        };
+        return colors[role] || colors.viewer;
     };
 
     const handleLogout = async () => {
@@ -368,6 +450,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentUser = null;
         sessionStorage.removeItem('currentUser');
         sessionStorage.removeItem('userRole');
+        sessionStorage.removeItem('userPermissions');
+        window.userPermissions = null;
         loginPage.style.display = 'block';
         appPage.style.display = 'none';
         // Destroy DataTables and Charts to re-initialize on next login
@@ -1600,6 +1684,66 @@ document.addEventListener('DOMContentLoaded', () => {
     window.calculateSrvTotal = calculateSrvTotal;
     window.closeModal = closeModal;
 
+    // --- Change Password Handler ---
+    const changePasswordBtn = document.getElementById('change-password-btn');
+    if (changePasswordBtn) {
+        changePasswordBtn.addEventListener('click', () => {
+            const modal = `<div id="password-modal" class="modal" style="display:block;"><div class="modal-content" style="max-width: 400px;">
+                <span class="close-btn" onclick="document.getElementById('password-modal').remove()">&times;</span>
+                <div class="form-header"><h3><i class="fas fa-key"></i> Change Password</h3></div>
+                <form id="change-password-form" style="padding: 20px;">
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>Current Password <span class="required">*</span></label>
+                            <input type="password" id="current-password" required autocomplete="current-password">
+                        </div>
+                        <div class="form-group">
+                            <label>New Password <span class="required">*</span></label>
+                            <input type="password" id="new-password" required minlength="6" autocomplete="new-password">
+                            <small style="color: #666;">Minimum 6 characters</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Confirm New Password <span class="required">*</span></label>
+                            <input type="password" id="confirm-password" required minlength="6" autocomplete="new-password">
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('password-modal').remove()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </div>
+                </form>
+            </div></div>`;
+            $('body').append(modal);
+        });
+    }
+    
+    // Handle change password form submission
+    $(document).on('submit', '#change-password-form', async function(e) {
+        e.preventDefault();
+        const currentPassword = $('#current-password').val();
+        const newPassword = $('#new-password').val();
+        const confirmPassword = $('#confirm-password').val();
+        
+        if (newPassword !== confirmPassword) {
+            showToast('New passwords do not match!');
+            return;
+        }
+        
+        if (newPassword.length < 6) {
+            showToast('Password must be at least 6 characters!');
+            return;
+        }
+        
+        try {
+            const { changePassword } = window.IDB;
+            await changePassword(currentPassword, newPassword);
+            showToast('Password changed successfully!');
+            $('#password-modal').remove();
+        } catch (err) {
+            showToast('Error: ' + (err.message || 'Failed to change password'));
+        }
+    });
+
     // --- Startup ---
     loginForm.addEventListener('submit', handleLogin);
     logoutBtn.addEventListener('click', handleLogout);
@@ -1612,18 +1756,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentUser = response.user.username;
                 sessionStorage.setItem('currentUser', response.user.username);
                 sessionStorage.setItem('userRole', response.user.role);
+                sessionStorage.setItem('userPermissions', JSON.stringify(response.user.permissions || {}));
                 loginPage.style.display = 'none';
                 appPage.style.display = 'block';
+                
+                // Apply role-based UI restrictions
+                applyRoleBasedUI(response.user.role, response.user.permissions);
+                
                 await initializeApp();
             } else {
                 // Clear stale session data
                 sessionStorage.removeItem('currentUser');
                 sessionStorage.removeItem('userRole');
+                sessionStorage.removeItem('userPermissions');
             }
         } catch (err) {
             console.log('No active session');
             sessionStorage.removeItem('currentUser');
             sessionStorage.removeItem('userRole');
+            sessionStorage.removeItem('userPermissions');
         }
     };
     
@@ -1632,24 +1783,95 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- User Management Screen ---
     async function renderUserManagement() {
+        const currentRole = sessionStorage.getItem('userRole');
+        const isSuperAdmin = currentRole === 'superadmin';
+        const isAdmin = ['superadmin', 'admin'].includes(currentRole);
+        
         const users = await getAllRecords('users');
-        let html = `<table id="users-table" class="display" width="100%"><thead><tr><th>Username</th><th>Role</th><th>Actions</th></tr></thead><tbody>`;
+        
+        let html = `
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;">User Management</h3>
+                ${isAdmin ? '<button id="add-user-btn" class="btn btn-primary"><i class="fas fa-plus"></i> Add User</button>' : ''}
+            </div>
+            <div class="role-legend" style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                <span style="display: flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; background: #800020; border-radius: 50%;"></span> Super Admin</span>
+                <span style="display: flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; background: #1e3c72; border-radius: 50%;"></span> Admin</span>
+                <span style="display: flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; background: #27ae60; border-radius: 50%;"></span> Storekeeper</span>
+                <span style="display: flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; background: #8e44ad; border-radius: 50%;"></span> Auditor</span>
+                <span style="display: flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; background: #7f8c8d; border-radius: 50%;"></span> Viewer</span>
+            </div>
+            <table id="users-table" class="display" width="100%">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Full Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Last Login</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+        
         users.forEach(u => {
-            html += `<tr><td>${u.username}</td><td>${u.role || 'user'}</td><td><button class="btn btn-sm btn-edit edit-user-btn" data-id="${u.id}">Edit</button> <button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}">Delete</button></td></tr>`;
+            const roleColor = {
+                superadmin: '#800020',
+                admin: '#1e3c72',
+                storekeeper: '#27ae60',
+                auditor: '#8e44ad',
+                viewer: '#7f8c8d'
+            }[u.role] || '#7f8c8d';
+            
+            const statusBadge = u.is_active !== 0 
+                ? '<span style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.8em;">Active</span>'
+                : '<span style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.8em;">Disabled</span>';
+            
+            const canEditUser = isSuperAdmin || (isAdmin && !['superadmin', 'admin'].includes(u.role));
+            const canDeleteUser = (isSuperAdmin && u.role !== 'superadmin') || (isAdmin && !['superadmin', 'admin'].includes(u.role));
+            
+            html += `<tr>
+                <td><strong>${u.username}</strong></td>
+                <td>${u.full_name || '-'}</td>
+                <td>${u.email || '-'}</td>
+                <td><span style="background: ${roleColor}; color: white; padding: 2px 10px; border-radius: 10px; font-size: 0.85em;">${u.role || 'viewer'}</span></td>
+                <td>${statusBadge}</td>
+                <td>${u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}</td>
+                <td>
+                    ${canEditUser ? `<button class="btn btn-sm btn-edit edit-user-btn" data-id="${u.id}" data-user='${JSON.stringify(u).replace(/'/g, "&#39;")}'>Edit</button>` : ''}
+                    ${canDeleteUser ? `<button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}" data-username="${u.username}">Delete</button>` : ''}
+                </td>
+            </tr>`;
         });
         html += '</tbody></table>';
+        
         $('#user-management-content').html(html);
+        
         if ($.fn.DataTable.isDataTable('#users-table')) {
             $('#users-table').DataTable().destroy();
         }
         $('#users-table').DataTable({
             responsive: true,
-            order: [[0, 'asc']]
+            order: [[3, 'asc'], [0, 'asc']]
         });
     }
 
     // Add User Modal - using event delegation
     $(document).on('click', '#add-user-btn', function() {
+        const currentRole = sessionStorage.getItem('userRole');
+        const isSuperAdmin = currentRole === 'superadmin';
+        
+        const roleOptions = isSuperAdmin 
+            ? `<option value="superadmin">Super Admin</option>
+               <option value="admin">Admin</option>
+               <option value="storekeeper">Storekeeper</option>
+               <option value="auditor">Auditor</option>
+               <option value="viewer" selected>Viewer</option>`
+            : `<option value="storekeeper">Storekeeper</option>
+               <option value="auditor">Auditor</option>
+               <option value="viewer" selected>Viewer</option>`;
+        
         const modal = `<div id="user-modal" class="modal" style="display:block;"><div class="modal-content">
             <span class="close-btn">&times;</span>
             <div class="form-header"><h3>Add New User</h3></div>
@@ -1662,17 +1884,29 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div class="form-group">
                             <label>Password <span class="required">*</span></label>
-                            <input type="password" id="new-password" required>
+                            <input type="password" id="new-password" required minlength="6">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Full Name</label>
+                            <input type="text" id="new-fullname">
+                        </div>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="new-email">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label>Role</label>
-                            <select id="new-role">
-                                <option value="admin">Admin</option>
-                                <option value="storekeeper">Storekeeper</option>
-                                <option value="auditor">Auditor</option>
-                                <option value="user">User</option>
+                            <select id="new-role">${roleOptions}</select>
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="new-status">
+                                <option value="1" selected>Active</option>
+                                <option value="0">Disabled</option>
                             </select>
                         </div>
                     </div>
@@ -1689,10 +1923,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // Save new user
     $(document).on('submit', '#user-form', async function(e) {
         e.preventDefault();
-        await registerUser($('#new-username').val(), $('#new-password').val(), $('#new-role').val());
-        showToast('User added successfully!');
-        $('#user-modal').remove();
-        renderUserManagement();
+        const userData = {
+            username: $('#new-username').val(),
+            password: $('#new-password').val(),
+            role: $('#new-role').val(),
+            fullName: $('#new-fullname').val(),
+            email: $('#new-email').val(),
+            isActive: $('#new-status').val() === '1'
+        };
+        
+        try {
+            await registerUser(userData.username, userData.password, userData.role, userData.fullName, userData.email);
+            showToast('User added successfully!');
+            $('#user-modal').remove();
+            renderUserManagement();
+        } catch (err) {
+            showToast('Error: ' + (err.message || 'Failed to create user'));
+        }
     });
 
     // Close user modal - handle both close button and cancel button
@@ -1700,12 +1947,126 @@ document.addEventListener('DOMContentLoaded', () => {
         $('#user-modal').remove();
     });
 
+    // Edit user
+    $(document).on('click', '.edit-user-btn', function() {
+        const userData = JSON.parse($(this).attr('data-user'));
+        const currentRole = sessionStorage.getItem('userRole');
+        const isSuperAdmin = currentRole === 'superadmin';
+        
+        const roleOptions = isSuperAdmin 
+            ? `<option value="superadmin" ${userData.role === 'superadmin' ? 'selected' : ''}>Super Admin</option>
+               <option value="admin" ${userData.role === 'admin' ? 'selected' : ''}>Admin</option>
+               <option value="storekeeper" ${userData.role === 'storekeeper' ? 'selected' : ''}>Storekeeper</option>
+               <option value="auditor" ${userData.role === 'auditor' ? 'selected' : ''}>Auditor</option>
+               <option value="viewer" ${userData.role === 'viewer' ? 'selected' : ''}>Viewer</option>`
+            : `<option value="storekeeper" ${userData.role === 'storekeeper' ? 'selected' : ''}>Storekeeper</option>
+               <option value="auditor" ${userData.role === 'auditor' ? 'selected' : ''}>Auditor</option>
+               <option value="viewer" ${userData.role === 'viewer' ? 'selected' : ''}>Viewer</option>`;
+        
+        const modal = `<div id="user-modal" class="modal" style="display:block;"><div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <div class="form-header"><h3>Edit User: ${userData.username}</h3></div>
+            <form id="edit-user-form" style="padding: 20px;">
+                <input type="hidden" id="edit-user-id" value="${userData.id}">
+                <div class="form-section">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Username <span class="required">*</span></label>
+                            <input type="text" id="edit-username" value="${userData.username}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>New Password (leave blank to keep current)</label>
+                            <input type="password" id="edit-password" minlength="6" placeholder="Leave blank to keep current">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Full Name</label>
+                            <input type="text" id="edit-fullname" value="${userData.full_name || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="edit-email" value="${userData.email || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Role</label>
+                            <select id="edit-role">${roleOptions}</select>
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="edit-status">
+                                <option value="1" ${userData.is_active !== 0 ? 'selected' : ''}>Active</option>
+                                <option value="0" ${userData.is_active === 0 ? 'selected' : ''}>Disabled</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary close-btn-action">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update User</button>
+                </div>
+            </form>
+        </div></div>`;
+        $('body').append(modal);
+    });
+    
+    // Update user
+    $(document).on('submit', '#edit-user-form', async function(e) {
+        e.preventDefault();
+        const userId = $('#edit-user-id').val();
+        const userData = {
+            username: $('#edit-username').val(),
+            role: $('#edit-role').val(),
+            fullName: $('#edit-fullname').val(),
+            email: $('#edit-email').val(),
+            isActive: $('#edit-status').val() === '1'
+        };
+        
+        const password = $('#edit-password').val();
+        if (password) {
+            userData.password = password;
+        }
+        
+        try {
+            await fetch(`/api/users/${userId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(userData)
+            });
+            showToast('User updated successfully!');
+            $('#user-modal').remove();
+            renderUserManagement();
+        } catch (err) {
+            showToast('Error: ' + (err.message || 'Failed to update user'));
+        }
+    });
+
     // Delete user
     $(document).on('click', '.delete-user-btn', async function() {
-        if (!confirm('Are you sure you want to delete this user?')) return;
-        await deleteRecord('users', Number($(this).data('id')));
-        showToast('User deleted');
-        renderUserManagement();
+        const username = $(this).data('username');
+        const userId = $(this).data('id');
+        
+        if (!confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) return;
+        
+        try {
+            const response = await fetch(`/api/users/${userId}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Failed to delete user');
+            }
+            
+            showToast('User deleted successfully');
+            renderUserManagement();
+        } catch (err) {
+            showToast('Error: ' + err.message);
+        }
     });
 
     // --- Remote Sync UI ---

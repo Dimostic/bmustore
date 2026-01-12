@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BMU Inventory Management</title>
-    <meta name="theme-color" content="#002366"/>
+    <title>BMU Store Management System</title>
+    <meta name="description" content="Bugema University Store Management System - Inventory, GRN, SRV, SRF Management">
+    <meta name="theme-color" content="#1e3c72"/>
     <link rel="icon" type="image/png" href="favicon.ico">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/192.png">
@@ -38,21 +40,28 @@
         <header>
             <div class="header-content">
                 <img src="bmulogo.png" alt="BMU Logo" class="app-logo">
-                <h1>Bayelsa Medical University - Inventory</h1>
+                <h1>BMU Store Management System</h1>
             </div>
-            <button id="logout-btn" class="btn btn-danger">Logout</button>
+            <div class="header-actions">
+                <button id="change-password-btn" class="btn btn-secondary" title="Change Password">
+                    <i class="fas fa-key"></i> <span class="btn-text">Password</span>
+                </button>
+                <button id="logout-btn" class="btn btn-danger" title="Logout">
+                    <i class="fas fa-sign-out-alt"></i> <span class="btn-text">Logout</span>
+                </button>
+            </div>
         </header>
 
         <nav class="top-nav">
             <ul>
-                <li><a href="#" class="nav-link active" data-target="dashboard">Dashboard</a></li>
-                <li><a href="#" class="nav-link" data-target="grn">Goods Received Note</a></li>
-                <li><a href="#" class="nav-link" data-target="srv">Store Receipt Voucher</a></li>
-                <li><a href="#" class="nav-link" data-target="srf">Stores Requisition</a></li>
-                <li><a href="#" class="nav-link" data-target="bin-card">Bin Card</a></li>
-                <li><a href="#" class="nav-link" data-target="items">Manage Items</a></li>
-                <li><a href="#" class="nav-link" data-target="activity-log">Activity Log</a></li>
-                <li><a href="#" class="nav-link" id="manage-users-nav" data-target="user-management">Users</a></li>
+                <li><a href="#" class="nav-link active" data-target="dashboard"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                <li><a href="#" class="nav-link" data-target="grn"><i class="fas fa-truck-loading"></i> GRN</a></li>
+                <li><a href="#" class="nav-link" data-target="srv"><i class="fas fa-file-invoice"></i> SRV</a></li>
+                <li><a href="#" class="nav-link" data-target="srf"><i class="fas fa-clipboard-list"></i> SRF</a></li>
+                <li><a href="#" class="nav-link" data-target="bin-card"><i class="fas fa-boxes"></i> Bin Card</a></li>
+                <li><a href="#" class="nav-link" data-target="items"><i class="fas fa-warehouse"></i> Items</a></li>
+                <li><a href="#" class="nav-link" data-target="activity-log"><i class="fas fa-history"></i> Activity</a></li>
+                <li><a href="#" class="nav-link" id="manage-users-nav" data-target="user-management"><i class="fas fa-users-cog"></i> Users</a></li>
             </ul>
         </nav>
 
@@ -723,8 +732,43 @@
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    <script src="offline-sync.js"></script>
     <script src="api.js"></script>
     <script src="app.js"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        // Register service worker for offline support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', async () => {
+                try {
+                    const registration = await navigator.serviceWorker.register('/service-worker.js');
+                    console.log('ServiceWorker registered:', registration.scope);
+                    
+                    // Check for updates
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // New version available
+                                if (confirm('A new version of BMU Store is available. Reload to update?')) {
+                                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                    window.location.reload();
+                                }
+                            }
+                        });
+                    });
+                    
+                    // Pre-cache API data when authenticated
+                    if (navigator.serviceWorker.controller) {
+                        navigator.serviceWorker.controller.postMessage({ type: 'CACHE_API_DATA' });
+                    }
+                } catch (error) {
+                    console.error('ServiceWorker registration failed:', error);
+                }
+            });
+        }
+    </script>
 <script>window.parent.postMessage({ action: "ready" }, "*"); 
  
 window.console = new Proxy(console, {

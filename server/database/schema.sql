@@ -5,15 +5,22 @@
 CREATE DATABASE IF NOT EXISTS bmustore_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE bmustore_db;
 
--- Users table
+-- Users table with enhanced roles
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    role ENUM('admin', 'storekeeper', 'auditor', 'user') DEFAULT 'user',
+    full_name VARCHAR(255),
+    email VARCHAR(255),
+    role ENUM('superadmin', 'admin', 'storekeeper', 'auditor', 'viewer') DEFAULT 'viewer',
+    is_active BOOLEAN DEFAULT TRUE,
+    last_login DATETIME,
+    created_by INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_username (username)
+    INDEX idx_username (username),
+    INDEX idx_role (role),
+    INDEX idx_is_active (is_active)
 ) ENGINE=InnoDB;
 
 -- Sessions table
@@ -134,20 +141,38 @@ CREATE TABLE IF NOT EXISTS activity_log (
     INDEX idx_timestamp (timestamp)
 ) ENGINE=InnoDB;
 
--- Roles table (for future RBAC)
+-- Roles table with detailed permissions
 CREATE TABLE IF NOT EXISTS roles (
     id INT AUTO_INCREMENT PRIMARY KEY,
     role_name VARCHAR(100) UNIQUE NOT NULL,
+    display_name VARCHAR(255),
+    description TEXT,
     permissions JSON,
+    can_delete_users BOOLEAN DEFAULT FALSE,
+    can_delete_admin BOOLEAN DEFAULT FALSE,
+    can_create_users BOOLEAN DEFAULT FALSE,
+    can_edit_all BOOLEAN DEFAULT FALSE,
+    can_view_all BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- Insert default roles
-INSERT IGNORE INTO roles (role_name, permissions) VALUES
-('admin', '["all"]'),
-('storekeeper', '["grn", "srv", "srf", "items", "bincard"]'),
-('auditor', '["view_all", "activity_log", "reports"]'),
-('user', '["view_own", "srf"]');
+-- Insert default roles with permissions
+INSERT IGNORE INTO roles (role_name, display_name, description, permissions, can_delete_users, can_delete_admin, can_create_users, can_edit_all) VALUES
+('superadmin', 'Super Administrator', 'Full system access including ability to delete admins', 
+ '{"items":["create","read","update","delete"],"grn":["create","read","update","delete"],"srv":["create","read","update","delete"],"srf":["create","read","update","delete"],"users":["create","read","update","delete"],"reports":["create","read","export"],"settings":["read","update"],"activity_log":["read","export"]}',
+ TRUE, TRUE, TRUE, TRUE),
+('admin', 'Administrator', 'Full access except deleting other admins', 
+ '{"items":["create","read","update","delete"],"grn":["create","read","update","delete"],"srv":["create","read","update","delete"],"srf":["create","read","update","delete"],"users":["create","read","update","delete"],"reports":["create","read","export"],"settings":["read"],"activity_log":["read"]}',
+ TRUE, FALSE, TRUE, TRUE),
+('storekeeper', 'Store Keeper', 'Manage inventory, create GRN, SRV, SRF', 
+ '{"items":["create","read","update"],"grn":["create","read","update"],"srv":["create","read","update"],"srf":["create","read","update"],"reports":["read"],"activity_log":["read"]}',
+ FALSE, FALSE, FALSE, TRUE),
+('auditor', 'Auditor', 'View all data and activity logs, export reports', 
+ '{"items":["read"],"grn":["read"],"srv":["read"],"srf":["read"],"reports":["read","export"],"activity_log":["read","export"]}',
+ FALSE, FALSE, FALSE, FALSE),
+('viewer', 'Viewer', 'View-only access to inventory data', 
+ '{"items":["read"],"grn":["read"],"srv":["read"],"srf":["read"],"reports":["read"]}',
+ FALSE, FALSE, FALSE, FALSE);
 
 -- Create database user (run as root)
 -- CREATE USER IF NOT EXISTS 'bmustore_user'@'localhost' IDENTIFIED BY 'BMUStore@2026Secure!';

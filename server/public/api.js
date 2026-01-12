@@ -282,6 +282,19 @@ async function getBinCard() {
     return await apiCall('/bincard');
 }
 
+// --- Change Password ---
+async function changePassword(currentPassword, newPassword) {
+    return await apiCall('/auth/change-password', {
+        method: 'POST',
+        body: { currentPassword, newPassword }
+    });
+}
+
+// --- Get Roles ---
+async function getRoles() {
+    return await apiCall('/roles');
+}
+
 // Expose all functions on window for global access (same interface as idb.js)
 window.IDB = {
     addRecord,
@@ -301,5 +314,7 @@ window.IDB = {
     syncStoreToRemote,
     fetchStoreFromRemote,
     getDashboardStats,
-    getBinCard
+    getBinCard,
+    changePassword,
+    getRoles
 };

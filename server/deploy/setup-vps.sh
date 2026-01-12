@@ -14,6 +14,7 @@ DOMAIN="bmustore.mehetti.com"
 DB_NAME="bmustore_db"
 DB_USER="bmustore_user"
 DB_PASS="BMUStore@2026Secure!"
+NODE_PORT=3001
 
 # Update system
 echo "[1/10] Updating system packages..."
@@ -45,7 +46,7 @@ mysql -e "FLUSH PRIVILEGES;"
 
 # Run schema
 echo "[5/10] Creating database tables..."
-mysql ${DB_NAME} < ${APP_DIR}/server/database/schema.sql
+mysql ${DB_NAME} < ${APP_DIR}/server/database/schema.sql || echo "Schema might already exist"
 
 # Create app directory
 echo "[6/10] Setting up application directory..."
@@ -91,7 +92,7 @@ server {
     
     # API proxy to Node.js backend
     location /api {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
