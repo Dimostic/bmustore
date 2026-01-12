@@ -1179,13 +1179,54 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         activityLog: {
             columns: [
-                { data: 'timestamp', title: 'Timestamp', render: (d) => new Date(d).toLocaleString() },
-                { data: 'user', title: 'User' },
+                { data: 'timestamp', title: 'Timestamp', render: (d) => d ? new Date(d).toLocaleString() : '-' },
+                { data: 'username', title: 'User', defaultContent: 'System' },
                 { data: 'action', title: 'Action' },
-                { data: 'details', title: 'Details' }
+                { data: 'details', title: 'Details', defaultContent: '-' }
             ],
             options: { order: [[0, 'desc']] }
         }
+    };
+    
+    // Common DataTables button configuration for export
+    const getTableButtons = (tableName) => {
+        return {
+            dom: 'Bfrtip',
+            buttons: [
+                {
+                    extend: 'copy',
+                    text: '<i class="fas fa-copy"></i> Copy',
+                    className: 'btn btn-sm btn-secondary',
+                    exportOptions: { columns: ':not(:last-child)' }
+                },
+                {
+                    extend: 'excel',
+                    text: '<i class="fas fa-file-excel"></i> Excel',
+                    className: 'btn btn-sm btn-success',
+                    title: `BMU Store - ${tableName}`,
+                    exportOptions: { columns: ':not(:last-child)' }
+                },
+                {
+                    extend: 'pdf',
+                    text: '<i class="fas fa-file-pdf"></i> PDF',
+                    className: 'btn btn-sm btn-danger',
+                    title: `BMU Store - ${tableName}`,
+                    exportOptions: { columns: ':not(:last-child)' },
+                    customize: function(doc) {
+                        doc.defaultStyle.fontSize = 9;
+                        doc.styles.tableHeader.fontSize = 10;
+                        doc.styles.tableHeader.fillColor = '#1e3c72';
+                    }
+                },
+                {
+                    extend: 'print',
+                    text: '<i class="fas fa-print"></i> Print',
+                    className: 'btn btn-sm btn-info',
+                    title: `BMU Store - ${tableName}`,
+                    exportOptions: { columns: ':not(:last-child)' }
+                }
+            ]
+        };
     };
     
     const initializeTable = async (dbName) => {
@@ -1264,11 +1305,22 @@ document.addEventListener('DOMContentLoaded', () => {
             data = await getAllRecords(storeName);
         }
 
+        // Map table names for display
+        const tableDisplayNames = {
+            'grn': 'Goods Received Notes',
+            'srv': 'Store Receipt Vouchers',
+            'srf': 'Store Requisition Forms',
+            'binCard': 'Bin Card / Stock Status',
+            'items': 'Items Master',
+            'activityLog': 'Activity Log'
+        };
+
         const options = {
             data: data,
             columns: config.columns,
             responsive: true,
             destroy: true, // Allow re-initialization
+            ...getTableButtons(tableDisplayNames[dbName] || dbName),
             ...config.options
         };
         

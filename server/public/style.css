@@ -1033,6 +1033,68 @@ textarea {
     cursor: not-allowed;
 }
 
+/* DataTables Buttons Styling */
+.dt-buttons {
+    margin-bottom: var(--space-4);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.dt-buttons .dt-button {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.dt-buttons .dt-button:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.dt-buttons .buttons-copy {
+    background: var(--text-secondary);
+    color: white;
+}
+
+.dt-buttons .buttons-copy:hover {
+    background: var(--text-primary);
+}
+
+.dt-buttons .buttons-excel {
+    background: #217346;
+    color: white;
+}
+
+.dt-buttons .buttons-excel:hover {
+    background: #1a5c38;
+}
+
+.dt-buttons .buttons-pdf {
+    background: var(--maroon);
+    color: white;
+}
+
+.dt-buttons .buttons-pdf:hover {
+    background: var(--maroon-dark);
+}
+
+.dt-buttons .buttons-print {
+    background: var(--royal-blue);
+    color: white;
+}
+
+.dt-buttons .buttons-print:hover {
+    background: var(--royal-blue-dark);
+}
+
 table.dataTable {
     border-collapse: collapse;
     width: 100%;

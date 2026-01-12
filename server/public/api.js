@@ -34,7 +34,8 @@ const storeNameMap = {
     'grn': 'grn',
     'srv': 'srv',
     'srf': 'srf',
-    'items': 'items'
+    'items': 'items',
+    'users': 'users'
 };
 
 // Field name mapping (frontend camelCase to backend snake_case)
