@@ -2093,11 +2093,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 handleDelete(dbName, id);
             });
 
-            $(`#${tableId} tbody`).off('click', '.btn-edit').on('click', async function () {
+            $(`#${tableId} tbody`).off('click', '.btn-edit').on('click', '.btn-edit', async function () {
                 const id = $(this).data('id');
+                if (!id) {
+                    console.error('No ID found for edit button');
+                    return;
+                }
                 const storeNameMap = { 'activityLog': 'activity_log' };
                 const storeName = storeNameMap[dbName] || dbName;
-                const doc = await getAllRecords(storeName).then(records => records.find(record => record.id === id));
+                const records = await getAllRecords(storeName);
+                const doc = records.find(record => record.id === id || record.id === parseInt(id));
+                if (!doc) {
+                    showToast('Record not found');
+                    return;
+                }
                 // This needs specific edit handlers per form type
                 if (editHandlers[dbName]) {
                     editHandlers[dbName](doc);
@@ -2975,14 +2984,19 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const initializeGrnImageHandlers = () => {
         // Handle GRN image upload buttons - use closest() to handle clicks on child elements (icons)
-        document.addEventListener('click', (e) => {
+        // Use both click and touchend for better mobile support
+        const handleImageAction = (e) => {
             const uploadBtn = e.target.closest('.btn-upload-image');
             if (uploadBtn && uploadBtn.closest('.grn-item-row')) {
                 e.preventDefault();
                 e.stopPropagation();
                 const rowIndex = uploadBtn.dataset.row;
                 const fileInput = document.getElementById(`grn-image-file-${rowIndex}`);
-                if (fileInput) fileInput.click();
+                if (fileInput) {
+                    // Small delay for mobile to ensure the click registers
+                    setTimeout(() => fileInput.click(), 10);
+                }
+                return;
             }
             
             const cameraBtn = e.target.closest('.btn-camera-image');
@@ -2991,6 +3005,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.stopPropagation();
                 const rowIndex = cameraBtn.dataset.row;
                 openGrnCameraModal(rowIndex);
+                return;
             }
             
             const removeBtn = e.target.closest('.btn-remove-image');
@@ -3008,7 +3023,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (url.pathname.startsWith('/uploads/')) {
                             imageUrl = url.pathname;
                         }
-                    } catch (e) {
+                    } catch (err) {
                         if (img.src.startsWith('/uploads/')) {
                             imageUrl = img.src;
                         }
@@ -3016,8 +3031,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 deleteGrnItemImage(grnId, rowIndex, imageUrl);
                 resetGrnItemImagePreview(rowIndex);
+                return;
             }
-        });
+        };
+        
+        document.addEventListener('click', handleImageAction);
         
         // Handle file selection for GRN images
         document.addEventListener('change', (e) => {
