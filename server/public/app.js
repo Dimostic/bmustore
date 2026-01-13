@@ -1150,6 +1150,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- Camera Capture Functions ---
     let cameraStream = null;
+    let grnCameraRowIndex = null; // Track which GRN row is using the camera
     
     const openCameraModal = async () => {
         const modal = document.getElementById('camera-modal');
@@ -1243,8 +1244,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const usePhoto = () => {
         const capturedImage = document.getElementById('captured-image');
         if (capturedImage && capturedImage.src) {
-            document.getElementById('item-image-data').value = capturedImage.src;
-            setItemImagePreview(capturedImage.src);
+            // Check if this is for a GRN item image
+            if (typeof grnCameraRowIndex !== 'undefined' && grnCameraRowIndex !== null) {
+                const imageData = capturedImage.src;
+                const grnId = document.getElementById('grn-id')?.value || 'new';
+                uploadGrnItemImage(grnId, grnCameraRowIndex, imageData);
+                setGrnItemImagePreview(grnCameraRowIndex, imageData);
+                grnCameraRowIndex = null;
+            } else {
+                // Default behavior for item images
+                document.getElementById('item-image-data').value = capturedImage.src;
+                setItemImagePreview(capturedImage.src);
+            }
         }
         closeCameraModal();
     };
@@ -2985,8 +2996,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     // GRN Camera functions
-    let grnCameraRowIndex = null;
-    
     const openGrnCameraModal = async (rowIndex) => {
         grnCameraRowIndex = rowIndex;
         const modal = document.getElementById('camera-modal');
@@ -3021,28 +3030,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    const useGrnPhoto = () => {
-        const capturedImage = document.getElementById('captured-image');
-        if (capturedImage && capturedImage.src && grnCameraRowIndex !== null) {
-            const imageData = capturedImage.src;
-            const grnId = document.getElementById('grn-id')?.value || 'new';
-            uploadGrnItemImage(grnId, grnCameraRowIndex, imageData);
-            setGrnItemImagePreview(grnCameraRowIndex, imageData);
-        }
-        closeCameraModal();
-        grnCameraRowIndex = null;
-    };
-    
-    // Override the usePhoto function to handle GRN images
-    const originalUsePhoto = usePhoto;
-    usePhoto = () => {
-        if (grnCameraRowIndex !== null) {
-            useGrnPhoto();
-        } else {
-            originalUsePhoto();
-        }
-    };
-
     // Initialize GRN image handlers
     initializeGrnImageHandlers();
 
