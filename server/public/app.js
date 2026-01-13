@@ -600,6 +600,10 @@ document.addEventListener('DOMContentLoaded', () => {
         row.className = `${type}-item-row`;
         row.dataset.index = index;
 
+        // Check if there's an existing image
+        const hasImage = data.images && data.images.length > 0;
+        const imageUrl = hasImage ? data.images[0] : '';
+
         if (type === 'grn') {
             row.innerHTML = `
                 <td>${index}</td>
@@ -609,6 +613,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><input type="number" name="qtyReceived" value="${data.qtyReceived || ''}" placeholder="0" min="0"></td>
                 <td><input type="text" name="unit" value="${data.unit || ''}" placeholder="Unit" readonly></td>
                 <td><input type="text" name="remark" value="${data.remark || ''}" placeholder="Remark"></td>
+                <td>
+                    <div class="image-upload-container">
+                        <div class="image-preview" id="grn-image-preview-${index}" style="display: ${hasImage ? 'flex' : 'none'};">
+                            <img src="${imageUrl}" alt="Item image" style="max-width: 50px; max-height: 50px; border-radius: 4px;">
+                            <button type="button" class="btn-remove-image" data-row="${index}">×</button>
+                        </div>
+                        <div class="image-buttons" id="grn-image-buttons-${index}" style="display: ${hasImage ? 'none' : 'flex'};">
+                            <button type="button" class="btn-upload-image" data-row="${index}" title="Upload Image">
+                                <i class="fas fa-upload"></i>
+                            </button>
+                            <button type="button" class="btn-camera-image" data-row="${index}" title="Take Photo">
+                                <i class="fas fa-camera"></i>
+                            </button>
+                        </div>
+                        <input type="file" class="image-file-input" id="grn-image-file-${index}" accept="image/*" style="display: none;">
+                    </div>
+                </td>
                 <td><button type="button" class="btn-remove-row" onclick="this.closest('tr').remove()">✕</button></td>
             `;
         } else if (type === 'srv') {
@@ -697,6 +718,42 @@ document.addEventListener('DOMContentLoaded', () => {
                     rowData[name] = input.type === 'number' ? parseFloat(input.value) || 0 : input.value;
                 }
             });
+            if (rowData.description) rows.push(rowData);
+        });
+        return rows;
+    };
+
+    const getGrnItemRowsData = (containerId) => {
+        const container = document.getElementById(containerId);
+        if (!container) return [];
+        
+        const rows = [];
+        container.querySelectorAll('tr').forEach((tr, idx) => {
+            const rowData = { sno: idx + 1 };
+            tr.querySelectorAll('input').forEach(input => {
+                const name = input.name;
+                if (name) {
+                    rowData[name] = input.type === 'number' ? parseFloat(input.value) || 0 : input.value;
+                }
+            });
+            
+            // Collect images for GRN items - store relative URL path
+            const preview = tr.querySelector('.image-preview img');
+            if (preview && preview.src) {
+                // Extract relative path from full URL (e.g., /uploads/grn/...)
+                try {
+                    const url = new URL(preview.src);
+                    if (url.pathname.startsWith('/uploads/')) {
+                        rowData.images = [url.pathname];
+                    }
+                } catch (e) {
+                    // If already a relative path
+                    if (preview.src.startsWith('/uploads/')) {
+                        rowData.images = [preview.src];
+                    }
+                }
+            }
+            
             if (rowData.description) rows.push(rowData);
         });
         return rows;
@@ -1232,7 +1289,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return [];
         }
     };
-    
+
     const createItemDatalist = async () => {
         const items = await fetchItems();
         const datalist = document.createElement('datalist');
@@ -1330,6 +1387,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <th>Qty Received</th>
                                 <th>Unit</th>
                                 <th>Remarks</th>
+                                <th>Image</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1342,6 +1400,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <td>${item.qtyReceived || 0}</td>
                                     <td>${item.unit || '-'}</td>
                                     <td>${item.remark || '-'}</td>
+                                    <td>${item.images && item.images.length > 0 ? `<img src="${item.images[0]}" alt="Item image" class="grn-item-thumbnail" onclick="window.open('${item.images[0]}', '_blank')">` : '-'}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -1931,7 +1990,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     category: item.category || '-',
                     quantitySupplied: totalReceived,
                     quantityIssued: totalIssued,
-                    storeBalance: balance,
+                    storeBalance: totalReceived - totalIssued,
                     location: item.location || '-',
                     minStock: item.minStock || 0,
                     lastRequisitionNo: lastSrfNo || '-',
@@ -1973,7 +2032,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 handleDelete(dbName, id);
             });
 
-            $(`#${tableId} tbody`).off('click', '.btn-edit').on('click', '.btn-edit', async function () {
+            $(`#${tableId} tbody`).off('click', '.btn-edit').on('click', async function () {
                 const id = $(this).data('id');
                 const storeNameMap = { 'activityLog': 'activity_log' };
                 const storeName = storeNameMap[dbName] || dbName;
@@ -2020,7 +2079,7 @@ document.addEventListener('DOMContentLoaded', () => {
             carrier: $('#grn-carrier').val(),
             waybillNo: $('#grn-waybill-no').val(),
             invoiceNo: $('#grn-invoice-no').val(),
-            items: getItemRowsData('grn-items-container'),
+            items: getGrnItemRowsData('grn-items-container'),
             examinedBy: $('#grn-examined-by').val(),
             examinedDept: $('#grn-examined-dept').val(),
             examinedSig: getSignatureData('grn-examined-sig'),
@@ -2784,6 +2843,208 @@ document.addEventListener('DOMContentLoaded', () => {
         await fetchStoreFromRemote('activity_log');
         showToast('All data updated from server');
     });
+
+    // --- GRN Item Image Functions ---
+    const resetGrnItemImagePreview = (rowIndex) => {
+        const preview = document.getElementById(`grn-image-preview-${rowIndex}`);
+        const buttons = document.getElementById(`grn-image-buttons-${rowIndex}`);
+        
+        if (preview) {
+            preview.style.display = 'none';
+            const img = preview.querySelector('img');
+            if (img) img.src = '';
+        }
+        if (buttons) buttons.style.display = 'flex';
+    };
+    
+    const setGrnItemImagePreview = (rowIndex, imageUrl) => {
+        const preview = document.getElementById(`grn-image-preview-${rowIndex}`);
+        const buttons = document.getElementById(`grn-image-buttons-${rowIndex}`);
+        
+        if (preview && imageUrl) {
+            const img = preview.querySelector('img');
+            if (img) img.src = imageUrl;
+            preview.style.display = 'block';
+        }
+        if (buttons) buttons.style.display = 'none';
+    };
+    
+    const uploadGrnItemImage = async (grnId, rowIndex, imageData) => {
+        try {
+            const response = await fetch(`/api/grn/${grnId}/items/${rowIndex}/image`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ imageData })
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Upload failed');
+            }
+            
+            const result = await response.json();
+            return result;
+        } catch (err) {
+            console.error('Error uploading GRN image:', err);
+            throw err;
+        }
+    };
+    
+    const deleteGrnItemImage = async (grnId, rowIndex, imageUrl) => {
+        try {
+            const response = await fetch(`/api/grn/${grnId}/items/${rowIndex}/image`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ imageUrl })
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Delete failed');
+            }
+            
+            return await response.json();
+        } catch (err) {
+            console.error('Error deleting GRN image:', err);
+            throw err;
+        }
+    };
+    
+    const initializeGrnImageHandlers = () => {
+        // Handle GRN image upload buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('btn-upload-image') && e.target.closest('.grn-item-row')) {
+                const rowIndex = e.target.dataset.row;
+                const fileInput = document.getElementById(`grn-image-file-${rowIndex}`);
+                if (fileInput) fileInput.click();
+            }
+            
+            if (e.target.classList.contains('btn-camera-image') && e.target.closest('.grn-item-row')) {
+                const rowIndex = e.target.dataset.row;
+                openGrnCameraModal(rowIndex);
+            }
+            
+            if (e.target.classList.contains('btn-remove-image') && e.target.closest('.grn-item-row')) {
+                const rowIndex = e.target.dataset.row;
+                const grnId = document.getElementById('grn-id')?.value || 'new';
+                const preview = document.getElementById(`grn-image-preview-${rowIndex}`);
+                const img = preview?.querySelector('img');
+                let imageUrl = null;
+                if (img && img.src) {
+                    try {
+                        const url = new URL(img.src);
+                        if (url.pathname.startsWith('/uploads/')) {
+                            imageUrl = url.pathname;
+                        }
+                    } catch (e) {
+                        if (img.src.startsWith('/uploads/')) {
+                            imageUrl = img.src;
+                        }
+                    }
+                }
+                deleteGrnItemImage(grnId, rowIndex, imageUrl);
+                resetGrnItemImagePreview(rowIndex);
+            }
+        });
+        
+        // Handle file selection for GRN images
+        document.addEventListener('change', (e) => {
+            if (e.target.classList.contains('image-file-input') && e.target.id.startsWith('grn-image-file-')) {
+                const rowIndex = e.target.id.split('-').pop();
+                handleGrnImageFileSelect(e, rowIndex);
+            }
+        });
+    };
+    
+    const handleGrnImageFileSelect = (e, rowIndex) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // Validate file type
+        if (!file.type.match(/^image\/(jpeg|jpg|png|gif|webp)$/i)) {
+            showToast('Invalid file type. Use JPG, PNG, GIF, or WebP');
+            return;
+        }
+        
+        // Validate file size (2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            showToast('Image too large. Maximum 2MB allowed');
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const imageData = evt.target.result;
+            const grnId = document.getElementById('grn-id')?.value || 'new';
+            uploadGrnItemImage(grnId, rowIndex, imageData);
+            setGrnItemImagePreview(rowIndex, imageData);
+        };
+        reader.readAsDataURL(file);
+    };
+    
+    // GRN Camera functions
+    let grnCameraRowIndex = null;
+    
+    const openGrnCameraModal = async (rowIndex) => {
+        grnCameraRowIndex = rowIndex;
+        const modal = document.getElementById('camera-modal');
+        const video = document.getElementById('camera-video');
+        const preview = document.getElementById('camera-preview');
+        const captureBtn = document.getElementById('camera-capture-btn');
+        const retakeBtn = document.getElementById('camera-retake-btn');
+        const useBtn = document.getElementById('camera-use-btn');
+        
+        // Reset state
+        if (preview) preview.style.display = 'none';
+        if (video) video.style.display = 'block';
+        if (captureBtn) captureBtn.style.display = 'inline-flex';
+        if (retakeBtn) retakeBtn.style.display = 'none';
+        if (useBtn) useBtn.style.display = 'none';
+        
+        try {
+            // Request camera access - prefer back camera on mobile
+            cameraStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment' },
+                audio: false
+            });
+            
+            if (video) {
+                video.srcObject = cameraStream;
+            }
+            
+            if (modal) modal.style.display = 'block';
+        } catch (err) {
+            console.error('Camera access denied:', err);
+            showToast('Camera access denied. Please allow camera permissions.');
+        }
+    };
+    
+    const useGrnPhoto = () => {
+        const capturedImage = document.getElementById('captured-image');
+        if (capturedImage && capturedImage.src && grnCameraRowIndex !== null) {
+            const imageData = capturedImage.src;
+            const grnId = document.getElementById('grn-id')?.value || 'new';
+            uploadGrnItemImage(grnId, grnCameraRowIndex, imageData);
+            setGrnItemImagePreview(grnCameraRowIndex, imageData);
+        }
+        closeCameraModal();
+        grnCameraRowIndex = null;
+    };
+    
+    // Override the usePhoto function to handle GRN images
+    const originalUsePhoto = usePhoto;
+    usePhoto = () => {
+        if (grnCameraRowIndex !== null) {
+            useGrnPhoto();
+        } else {
+            originalUsePhoto();
+        }
+    };
+
+    // Initialize GRN image handlers
+    initializeGrnImageHandlers();
 
 });
 // End of DOMContentLoaded

@@ -534,6 +534,25 @@ stores.forEach(store => {
     app.delete(`/api/${store}/:id`, requireAuth, async (req, res) => {
         try {
             const { id } = req.params;
+            
+            // Clean up GRN images before deleting the record
+            if (store === 'grn') {
+                const [rows] = await pool.execute('SELECT items FROM grn WHERE id = ?', [id]);
+                if (rows.length > 0 && rows[0].items) {
+                    const items = typeof rows[0].items === 'string' ? JSON.parse(rows[0].items) : rows[0].items;
+                    items.forEach(item => {
+                        if (item.images && Array.isArray(item.images)) {
+                            item.images.forEach(imageUrl => {
+                                const filepath = path.join(__dirname, 'public', imageUrl);
+                                if (fs.existsSync(filepath)) {
+                                    fs.unlinkSync(filepath);
+                                }
+                            });
+                        }
+                    });
+                }
+            }
+            
             await pool.execute(`DELETE FROM ${store} WHERE id = ?`, [id]);
             await logActivity(req.session.userId, `${store.toUpperCase()}_DELETE`, `Deleted ${store} record ID: ${id}`);
             res.json({ success: true });
@@ -546,10 +565,14 @@ stores.forEach(store => {
 
 // --- Image Upload for Items ---
 const UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'items');
+const GRN_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'grn');
 
-// Ensure upload directory exists
+// Ensure upload directories exist
 if (!fs.existsSync(UPLOAD_DIR)) {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+if (!fs.existsSync(GRN_UPLOAD_DIR)) {
+    fs.mkdirSync(GRN_UPLOAD_DIR, { recursive: true });
 }
 
 // Serve uploaded images
@@ -628,6 +651,70 @@ app.delete('/api/items/:id/image', requireAuth, async (req, res) => {
         res.json({ success: true });
     } catch (err) {
         console.error('Error deleting image:', err);
+        res.status(500).json({ error: 'Failed to delete image' });
+    }
+});
+
+// Upload GRN item image (base64)
+app.post('/api/grn/:grnId/items/:itemIndex/image', requireAuth, async (req, res) => {
+    try {
+        const { grnId, itemIndex } = req.params;
+        const { imageData } = req.body;
+        
+        if (!imageData) {
+            return res.status(400).json({ error: 'No image data provided' });
+        }
+        
+        // Validate base64 image
+        const matches = imageData.match(/^data:image\/(jpeg|jpg|png|gif|webp);base64,(.+)$/);
+        if (!matches) {
+            return res.status(400).json({ error: 'Invalid image format. Supported: JPG, PNG, GIF, WebP' });
+        }
+        
+        const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+        const base64Data = matches[2];
+        const buffer = Buffer.from(base64Data, 'base64');
+        
+        // Check file size (max 2MB)
+        if (buffer.length > 2 * 1024 * 1024) {
+            return res.status(400).json({ error: 'Image too large. Maximum size is 2MB' });
+        }
+        
+        // Generate unique filename
+        const filename = `grn_${grnId}_item_${itemIndex}_${Date.now()}.${ext}`;
+        const filepath = path.join(GRN_UPLOAD_DIR, filename);
+        
+        // Save image
+        fs.writeFileSync(filepath, buffer);
+        const imageUrl = `/uploads/grn/${filename}`;
+        
+        await logActivity(req.session.userId, 'GRN_IMAGE_UPLOAD', `Uploaded image for GRN ${grnId}, item ${itemIndex}`);
+        
+        res.json({ success: true, imageUrl });
+    } catch (err) {
+        console.error('Error uploading GRN image:', err);
+        res.status(500).json({ error: 'Failed to upload image' });
+    }
+});
+
+// Delete GRN item image
+app.delete('/api/grn/:grnId/items/:itemIndex/image', requireAuth, async (req, res) => {
+    try {
+        const { grnId, itemIndex } = req.params;
+        const { imageUrl } = req.body;
+        
+        if (imageUrl) {
+            const filepath = path.join(__dirname, 'public', imageUrl);
+            if (fs.existsSync(filepath)) {
+                fs.unlinkSync(filepath);
+            }
+        }
+        
+        await logActivity(req.session.userId, 'GRN_IMAGE_DELETE', `Deleted image for GRN ${grnId}, item ${itemIndex}`);
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error deleting GRN image:', err);
         res.status(500).json({ error: 'Failed to delete image' });
     }
 });
