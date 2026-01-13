@@ -607,24 +607,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (type === 'grn') {
             row.innerHTML = `
                 <td>${index}</td>
-                <td><input type="text" name="description" list="item-list" value="${data.description || ''}" placeholder="Item description" class="item-autocomplete"></td>
+                <td class="item-description-cell">
+                    <div class="searchable-select-container">
+                        <input type="text" name="description" list="item-list-${index}" value="${data.description || ''}" placeholder="Search or type item..." class="item-autocomplete searchable-input">
+                        <datalist id="item-list-${index}"></datalist>
+                        <button type="button" class="btn-clear-item" title="Clear item" ${!data.description ? 'style="display:none;"' : ''}>×</button>
+                    </div>
+                </td>
                 <td><input type="text" name="code" value="${data.code || ''}" placeholder="Code" readonly></td>
                 <td><input type="number" name="qtyOrdered" value="${data.qtyOrdered || ''}" placeholder="0" min="0"></td>
                 <td><input type="number" name="qtyReceived" value="${data.qtyReceived || ''}" placeholder="0" min="0"></td>
                 <td><input type="text" name="unit" value="${data.unit || ''}" placeholder="Unit" readonly></td>
                 <td><input type="text" name="remark" value="${data.remark || ''}" placeholder="Remark"></td>
                 <td>
-                    <div class="image-upload-container">
+                    <div class="grn-image-upload-container">
                         <div class="image-preview" id="grn-image-preview-${index}" style="display: ${hasImage ? 'flex' : 'none'};">
-                            <img src="${imageUrl}" alt="Item image" style="max-width: 50px; max-height: 50px; border-radius: 4px;">
-                            <button type="button" class="btn-remove-image" data-row="${index}">×</button>
+                            <img src="${imageUrl}" alt="Item image">
+                            <button type="button" class="btn-remove-image" data-row="${index}" title="Remove image">×</button>
                         </div>
                         <div class="image-buttons" id="grn-image-buttons-${index}" style="display: ${hasImage ? 'none' : 'flex'};">
                             <button type="button" class="btn-upload-image" data-row="${index}" title="Upload Image">
                                 <i class="fas fa-upload"></i>
+                                <span>Upload</span>
                             </button>
                             <button type="button" class="btn-camera-image" data-row="${index}" title="Take Photo">
                                 <i class="fas fa-camera"></i>
+                                <span>Camera</span>
                             </button>
                         </div>
                         <input type="file" class="image-file-input" id="grn-image-file-${index}" accept="image/*" style="display: none;">
@@ -632,6 +640,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
                 <td><button type="button" class="btn-remove-row" onclick="this.closest('tr').remove()">✕</button></td>
             `;
+            
+            // Populate datalist with items
+            const datalist = row.querySelector(`#item-list-${index}`);
+            if (datalist && itemsCache) {
+                itemsCache.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item.name;
+                    option.dataset.code = item.code;
+                    option.dataset.unit = item.unit;
+                    datalist.appendChild(option);
+                });
+            }
         } else if (type === 'srv') {
             row.innerHTML = `
                 <td>${index}</td>
@@ -661,12 +681,42 @@ document.addEventListener('DOMContentLoaded', () => {
         // Add autocomplete handler
         const descInput = row.querySelector('.item-autocomplete');
         if (descInput) {
+            // Handle item selection
             descInput.addEventListener('change', function() {
                 const item = itemsCache.find(i => i.name === this.value);
+                const clearBtn = row.querySelector('.btn-clear-item');
                 if (item) {
                     row.querySelector('[name="code"]').value = item.code;
                     row.querySelector('[name="unit"]').value = item.unit;
+                    if (clearBtn) clearBtn.style.display = 'flex';
+                } else if (!this.value) {
+                    row.querySelector('[name="code"]').value = '';
+                    row.querySelector('[name="unit"]').value = '';
+                    if (clearBtn) clearBtn.style.display = 'none';
                 }
+            });
+            
+            // Handle input to show/hide clear button
+            descInput.addEventListener('input', function() {
+                const clearBtn = row.querySelector('.btn-clear-item');
+                if (clearBtn) {
+                    clearBtn.style.display = this.value ? 'flex' : 'none';
+                }
+            });
+        }
+        
+        // Handle clear item button
+        const clearBtn = row.querySelector('.btn-clear-item');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+                const descInput = row.querySelector('[name="description"]');
+                if (descInput) {
+                    descInput.value = '';
+                    descInput.focus();
+                }
+                row.querySelector('[name="code"]').value = '';
+                row.querySelector('[name="unit"]').value = '';
+                this.style.display = 'none';
             });
         }
 
@@ -2924,21 +2974,30 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const initializeGrnImageHandlers = () => {
-        // Handle GRN image upload buttons
+        // Handle GRN image upload buttons - use closest() to handle clicks on child elements (icons)
         document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('btn-upload-image') && e.target.closest('.grn-item-row')) {
-                const rowIndex = e.target.dataset.row;
+            const uploadBtn = e.target.closest('.btn-upload-image');
+            if (uploadBtn && uploadBtn.closest('.grn-item-row')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const rowIndex = uploadBtn.dataset.row;
                 const fileInput = document.getElementById(`grn-image-file-${rowIndex}`);
                 if (fileInput) fileInput.click();
             }
             
-            if (e.target.classList.contains('btn-camera-image') && e.target.closest('.grn-item-row')) {
-                const rowIndex = e.target.dataset.row;
+            const cameraBtn = e.target.closest('.btn-camera-image');
+            if (cameraBtn && cameraBtn.closest('.grn-item-row')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const rowIndex = cameraBtn.dataset.row;
                 openGrnCameraModal(rowIndex);
             }
             
-            if (e.target.classList.contains('btn-remove-image') && e.target.closest('.grn-item-row')) {
-                const rowIndex = e.target.dataset.row;
+            const removeBtn = e.target.closest('.btn-remove-image');
+            if (removeBtn && removeBtn.closest('.grn-item-row')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const rowIndex = removeBtn.dataset.row;
                 const grnId = document.getElementById('grn-id')?.value || 'new';
                 const preview = document.getElementById(`grn-image-preview-${rowIndex}`);
                 const img = preview?.querySelector('img');

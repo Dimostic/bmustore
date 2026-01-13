@@ -1663,7 +1663,177 @@ input[list] {
 }
 
 /* ============================================
-   IMAGE UPLOAD & CAMERA CAPTURE
+   SEARCHABLE SELECT / ITEM DROPDOWN
+   ============================================ */
+.searchable-select-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.searchable-select-container .searchable-input {
+    flex: 1;
+    padding-right: 30px;
+}
+
+.btn-clear-item {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    z-index: 1;
+}
+
+.btn-clear-item:hover {
+    background: var(--danger);
+    color: white;
+}
+
+.item-description-cell {
+    min-width: 180px;
+}
+
+/* ============================================
+   GRN IMAGE UPLOAD (TABLE ROW)
+   ============================================ */
+.grn-image-upload-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 100px;
+}
+
+.grn-image-upload-container .image-preview {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.grn-image-upload-container .image-preview img {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 2px solid var(--success);
+}
+
+.grn-image-upload-container .btn-remove-image {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: var(--danger);
+    color: white;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: transform 0.2s ease;
+}
+
+.grn-image-upload-container .btn-remove-image:hover {
+    transform: scale(1.1);
+}
+
+.grn-image-upload-container .image-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+}
+
+.grn-image-upload-container .btn-upload-image,
+.grn-image-upload-container .btn-camera-image {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-medium);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.grn-image-upload-container .btn-upload-image:hover,
+.grn-image-upload-container .btn-camera-image:hover {
+    background: var(--royal-blue);
+    color: white;
+    border-color: var(--royal-blue);
+}
+
+.grn-image-upload-container .btn-upload-image i,
+.grn-image-upload-container .btn-camera-image i {
+    font-size: 14px;
+}
+
+.grn-image-upload-container .btn-upload-image span,
+.grn-image-upload-container .btn-camera-image span {
+    display: inline;
+}
+
+/* Mobile: Stack buttons and make them larger tap targets */
+@media (max-width: 768px) {
+    .grn-image-upload-container {
+        min-width: 90px;
+    }
+    
+    .grn-image-upload-container .image-buttons {
+        gap: 8px;
+    }
+    
+    .grn-image-upload-container .btn-upload-image,
+    .grn-image-upload-container .btn-camera-image {
+        padding: 10px 14px;
+        font-size: 13px;
+        min-height: 44px; /* Apple's recommended touch target */
+    }
+    
+    .grn-image-upload-container .btn-upload-image i,
+    .grn-image-upload-container .btn-camera-image i {
+        font-size: 16px;
+    }
+    
+    .item-description-cell {
+        min-width: 150px;
+    }
+    
+    .btn-clear-item {
+        width: 28px;
+        height: 28px;
+        font-size: 16px;
+    }
+}
+
+/* ============================================
+   IMAGE UPLOAD & CAMERA CAPTURE (GENERAL)
    ============================================ */
 .image-upload-container {
     display: flex;
