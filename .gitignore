@@ -19,3 +19,4 @@ server/public/uploads/grn/*
 server/public/uploads/items/*
 !server/public/uploads/grn/.gitkeep
 !server/public/uploads/items/.gitkeep
+*.xlsx
