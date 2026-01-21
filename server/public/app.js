@@ -2745,8 +2745,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (!grnMap.has(drnNo)) {
                 grnMap.set(drnNo, {
-                    drn_no: drnNo,
-                    delivery_date: parseExcelDate(row[columnMappings.date]),
+                    drnNo: drnNo,
+                    deliveryDate: parseExcelDate(row[columnMappings.date]),
                     items: []
                 });
             }
@@ -2754,8 +2754,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const grn = grnMap.get(drnNo);
             
             // Update date if not set
-            if (!grn.delivery_date && columnMappings.date) {
-                grn.delivery_date = parseExcelDate(row[columnMappings.date]);
+            if (!grn.deliveryDate && columnMappings.date) {
+                grn.deliveryDate = parseExcelDate(row[columnMappings.date]);
             }
             
             // Add item
@@ -2775,13 +2775,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         for (const [drnNo, grn] of grnMap) {
             try {
+                // Use camelCase field names - api.js will convert to snake_case
                 const grnData = {
-                    drn_no: grn.drn_no,
-                    delivery_date: grn.delivery_date,
-                    supplier_name: 'Imported',
+                    drnNo: grn.drnNo,
+                    deliveryDate: grn.deliveryDate,
+                    supplierName: 'Imported',
                     items: grn.items,
-                    examined_dept: '',
-                    received_dept: 'Store',
+                    examinedDept: '',
+                    receivedDept: 'Store',
                     distribution: ''
                 };
                 
@@ -2814,12 +2815,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             try {
+                // Use camelCase field names - api.js will convert to snake_case
                 const itemData = {
                     code: code,
                     name: name,
                     unit: String(row[columnMappings.unit] || 'pcs').trim(),
                     category: String(row[columnMappings.category] || 'other').trim().toLowerCase(),
-                    min_stock: parseInt(row[columnMappings.min_stock]) || 0,
+                    minStock: parseInt(row[columnMappings.min_stock]) || 0,
                     location: String(row[columnMappings.location] || '').trim(),
                     description: String(row[columnMappings.description] || '').trim()
                 };
@@ -2845,12 +2847,13 @@ document.addEventListener('DOMContentLoaded', () => {
         
         for (const row of importData.rows) {
             try {
+                // Use camelCase field names - api.js will convert to snake_case
                 const srvData = {
-                    doc_num: row[columnMappings.docNum] || row['SRV No'] || row['docNum'] || generateDocNumber('SRV'),
+                    docNum: row[columnMappings.docNum] || row['SRV No'] || row['docNum'] || generateDocNumber('SRV'),
                     date: parseExcelDate(row[columnMappings.date]) || new Date().toISOString().split('T')[0],
                     department: row[columnMappings.department] || row['Department'] || '',
                     source: row[columnMappings.source] || row['Source/Supplier'] || '',
-                    total_value: parseFloat(row[columnMappings.totalValue] || row['Total Value']) || 0
+                    totalValue: parseFloat(row[columnMappings.totalValue] || row['Total Value']) || 0
                 };
                 
                 await addRecord('srv', srvData);
