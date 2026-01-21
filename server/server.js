@@ -1125,6 +1125,266 @@ async function initializeDummyData() {
     }
 }
 
+// --- Admin Import API ---
+const XLSX = require('xlsx');
+
+// Helper function to import supplier data from Excel
+async function importSupplierDataFromFile(fileName, log = console.log) {
+    const excelFilePath = path.join(__dirname, fileName);
+    
+    // Extract supplier name from filename
+    const supplierName = fileName.replace(/_\d+\.xlsx$/, '').replace(/\.xlsx$/, '');
+    
+    log(`Importing GRN data from: ${fileName}`);
+    log(`Supplier: ${supplierName}`);
+
+    if (!fs.existsSync(excelFilePath)) {
+        throw new Error(`File not found: ${excelFilePath}`);
+    }
+
+    // Read the Excel file
+    const workbook = XLSX.readFile(excelFilePath);
+    log(`Sheet names: ${workbook.SheetNames.join(', ')}`);
+    
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+
+    // Convert to JSON
+    const allData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+    log(`Total rows: ${allData.length}`);
+
+    // Find the header row
+    let headerRowIndex = -1;
+    for (let i = 0; i < Math.min(10, allData.length); i++) {
+        const row = allData[i];
+        if (row && row.length > 0) {
+            const rowStr = row.join(' ').toUpperCase();
+            if ((rowStr.includes('SNO') || rowStr.includes('S/NO')) && 
+                (rowStr.includes('DATE') || rowStr.includes('DESCRIPTION') || rowStr.includes('DRN'))) {
+                headerRowIndex = i;
+                break;
+            }
+        }
+    }
+
+    if (headerRowIndex === -1) {
+        throw new Error('Could not find header row');
+    }
+
+    const headers = allData[headerRowIndex];
+    log(`Header row index: ${headerRowIndex}, Headers: ${headers.join(', ')}`);
+
+    // Map column indices
+    const colMap = {};
+    headers.forEach((h, i) => {
+        if (!h) return;
+        const hUpper = String(h).toUpperCase().trim();
+        if (hUpper.includes('SNO') || hUpper === 'S/NO' || hUpper === 'S/N') colMap.sno = i;
+        if (hUpper.includes('DATE')) colMap.date = i;
+        if (hUpper.includes('DESCRIPTION')) colMap.description = i;
+        if (hUpper.includes('CODE')) colMap.code = i;
+        if (hUpper.includes('DRN') || hUpper.includes('GRN')) colMap.drnNo = i;
+        if (hUpper.includes('QUANTITY') || hUpper.includes('QTY')) colMap.quantity = i;
+        if (hUpper.includes('REMARK')) colMap.remark = i;
+    });
+
+    if (colMap.drnNo === undefined) {
+        throw new Error('Could not find DRN/GRN column');
+    }
+
+    // Parse data rows - handle items with empty DRN (they belong to previous DRN)
+    const dataRows = allData.slice(headerRowIndex + 1);
+    log(`Data rows: ${dataRows.length}`);
+
+    const grnMap = new Map();
+    let currentDrn = null;
+
+    for (const row of dataRows) {
+        if (!row || row.length < 3) continue;
+
+        // Check if this row has a description
+        const description = colMap.description !== undefined ? row[colMap.description] : null;
+        if (!description || String(description).trim() === '') continue;
+
+        const descStr = String(description).toUpperCase().trim();
+        if (descStr === 'DESCRIPTION' || descStr === 'DESCRIPTION OF ITEM') continue;
+
+        // Get DRN from this row or use the last known DRN
+        let drnNo = colMap.drnNo !== undefined ? row[colMap.drnNo] : null;
+        
+        if (drnNo && String(drnNo).trim() !== '') {
+            drnNo = String(drnNo).trim();
+            if (drnNo.toUpperCase().includes('DRN NO')) continue;
+            currentDrn = drnNo;
+        } else {
+            drnNo = currentDrn;
+        }
+
+        if (!drnNo) continue;
+
+        // Parse date
+        let dateValue = null;
+        const dateRaw = colMap.date !== undefined ? row[colMap.date] : null;
+        if (dateRaw) {
+            if (typeof dateRaw === 'number') {
+                const excelDate = XLSX.SSF.parse_date_code(dateRaw);
+                if (excelDate) {
+                    dateValue = `${excelDate.y}-${String(excelDate.m).padStart(2, '0')}-${String(excelDate.d).padStart(2, '0')}`;
+                }
+            } else if (typeof dateRaw === 'string') {
+                const parts = dateRaw.trim().split(/[\/\-]/);
+                if (parts.length === 3) {
+                    const day = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10);
+                    let year = parseInt(parts[2], 10);
+                    if (year < 100) year += 2000;
+                    dateValue = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                }
+            }
+        }
+
+        if (!grnMap.has(drnNo)) {
+            grnMap.set(drnNo, {
+                drn_no: drnNo,
+                delivery_date: dateValue,
+                items: []
+            });
+        }
+
+        const grn = grnMap.get(drnNo);
+        if (dateValue && !grn.delivery_date) {
+            grn.delivery_date = dateValue;
+        }
+
+        const code = colMap.code !== undefined ? row[colMap.code] : '';
+        const quantity = colMap.quantity !== undefined ? row[colMap.quantity] : 0;
+        const remark = colMap.remark !== undefined ? row[colMap.remark] : '';
+
+        grn.items.push({
+            sno: grn.items.length + 1,
+            description: String(description).trim(),
+            code: code ? String(code).trim() : '',
+            qtyOrdered: Number(quantity) || 0,
+            qtyReceived: Number(quantity) || 0,
+            unit: '',
+            remark: remark ? String(remark).trim() : ''
+        });
+    }
+
+    log(`Grouped into ${grnMap.size} GRN records`);
+
+    if (grnMap.size === 0) {
+        throw new Error('No GRN records found');
+    }
+
+    // Calculate total items
+    let totalItems = 0;
+    for (const [, grn] of grnMap) {
+        totalItems += grn.items.length;
+    }
+    log(`Total items across all GRNs: ${totalItems}`);
+
+    // Insert into database
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let insertedCount = 0;
+        let updatedCount = 0;
+        let skippedCount = 0;
+        let errorCount = 0;
+
+        for (const [drnNo, grn] of grnMap) {
+            try {
+                const [existing] = await connection.execute(
+                    'SELECT id, items FROM grn WHERE drn_no = ?',
+                    [drnNo]
+                );
+
+                if (existing.length > 0) {
+                    const existingItems = JSON.parse(existing[0].items || '[]');
+                    if (grn.items.length > existingItems.length) {
+                        await connection.execute(
+                            `UPDATE grn SET items = ?, supplier_name = ? WHERE id = ?`,
+                            [JSON.stringify(grn.items), supplierName, existing[0].id]
+                        );
+                        log(`Updated ${drnNo}: ${existingItems.length} -> ${grn.items.length} items`);
+                        updatedCount++;
+                    } else {
+                        skippedCount++;
+                    }
+                    continue;
+                }
+
+                await connection.execute(
+                    `INSERT INTO grn (drn_no, delivery_date, supplier_name, items, examined_dept, received_dept, distribution)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        grn.drn_no,
+                        grn.delivery_date,
+                        supplierName,
+                        JSON.stringify(grn.items),
+                        '',
+                        'Store',
+                        ''
+                    ]
+                );
+
+                insertedCount++;
+            } catch (err) {
+                log(`Error processing ${drnNo}: ${err.message}`);
+                errorCount++;
+            }
+        }
+
+        await connection.commit();
+        
+        return {
+            supplier: supplierName,
+            totalGrns: grnMap.size,
+            totalItems,
+            inserted: insertedCount,
+            updated: updatedCount,
+            skipped: skippedCount,
+            errors: errorCount
+        };
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
+}
+
+// List available Excel files for import
+app.get('/api/admin/import/files', requireAuth, async (req, res) => {
+    try {
+        const files = fs.readdirSync(__dirname)
+            .filter(f => f.endsWith('.xlsx') && !f.startsWith('~$'))
+            .map(f => ({
+                name: f,
+                supplier: f.replace(/_\d+\.xlsx$/, '').replace(/\.xlsx$/, '')
+            }));
+        res.json(files);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Import a supplier's Excel file
+app.post('/api/admin/import/:filename', requireAuth, async (req, res) => {
+    try {
+        const filename = decodeURIComponent(req.params.filename);
+        const logs = [];
+        const log = (msg) => logs.push(msg);
+        
+        const result = await importSupplierDataFromFile(filename, log);
+        res.json({ success: true, result, logs });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // --- Catch-all for SPA ---
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
