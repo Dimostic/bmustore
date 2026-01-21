@@ -2375,77 +2375,503 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- CSV Import Handler (for SRV) ---
+    // --- Excel/CSV Import Handler ---
     let importData = null;
+    let importWorkbook = null;
+    let currentImportType = null; // 'grn', 'items', or 'srv'
+    
+    // Column mappings for different import types
+    const importMappings = {
+        grn: {
+            fields: [
+                { key: 'drn_no', label: 'GRN/DRN No', required: true },
+                { key: 'date', label: 'Date', required: false },
+                { key: 'description', label: 'Description', required: false },
+                { key: 'code', label: 'Item Code', required: false },
+                { key: 'quantity', label: 'Quantity', required: false },
+                { key: 'remark', label: 'Remark', required: false }
+            ],
+            groupBy: 'drn_no' // Group items by this field
+        },
+        items: {
+            fields: [
+                { key: 'code', label: 'Item Code', required: true },
+                { key: 'name', label: 'Item Name', required: true },
+                { key: 'unit', label: 'Unit', required: false },
+                { key: 'category', label: 'Category', required: false },
+                { key: 'min_stock', label: 'Min Stock', required: false },
+                { key: 'location', label: 'Location', required: false },
+                { key: 'description', label: 'Description', required: false }
+            ]
+        },
+        srv: {
+            fields: [
+                { key: 'docNum', label: 'SRV No', required: true },
+                { key: 'date', label: 'Date', required: false },
+                { key: 'department', label: 'Department', required: false },
+                { key: 'source', label: 'Source/Supplier', required: false },
+                { key: 'totalValue', label: 'Total Value', required: false }
+            ]
+        }
+    };
+    
+    // Column mapping state
+    let columnMappings = {};
+    
+    // Import button handlers
+    $('#import-grn').on('click', function() {
+        openImportModal('grn');
+    });
+    
+    $('#import-items').on('click', function() {
+        openImportModal('items');
+    });
     
     $('#import-srv').on('click', function() {
+        openImportModal('srv');
+    });
+    
+    function openImportModal(type) {
+        currentImportType = type;
+        $('#import-type').val(type);
         $('#import-file').val('');
         $('#import-preview').hide();
+        $('#import-options').hide();
+        $('#import-mapping').hide();
         $('#confirm-import-btn').prop('disabled', true);
         importData = null;
+        importWorkbook = null;
+        columnMappings = {};
+        
+        // Update modal title
+        const titles = {
+            grn: 'Import GRN Data from Excel',
+            items: 'Import Items from Excel',
+            srv: 'Import SRV Data'
+        };
+        $('#import-modal-title').html(`<i class="fas fa-file-import"></i> ${titles[type] || 'Import Data'}`);
+        
         openModal('import');
-    });
-
-    $('#import-file').on('change', function(e) {
+    }
+    
+    // File change handler - parse Excel/CSV
+    $('#import-file').on('change', async function(e) {
         const file = e.target.files[0];
         if (!file) return;
         
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-            const parsed = parseCSV(evt.target.result);
-            importData = parsed;
-            
-            // Show preview
-            let html = '<table><thead><tr>';
-            parsed.headers.forEach(h => html += `<th>${h}</th>`);
-            html += '</tr></thead><tbody>';
-            
-            parsed.rows.slice(0, 5).forEach(row => {
-                html += '<tr>';
-                parsed.headers.forEach(h => html += `<td>${row[h] || ''}</td>`);
-                html += '</tr>';
-            });
-            html += '</tbody></table>';
-            
-            if (parsed.rows.length > 5) {
-                html += `<p>...and ${parsed.rows.length - 5} more rows</p>`;
+        const fileName = file.name.toLowerCase();
+        const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+        
+        try {
+            if (isExcel) {
+                // Parse Excel file using SheetJS
+                const data = await file.arrayBuffer();
+                importWorkbook = XLSX.read(data, { type: 'array', cellDates: true });
+                
+                // Populate sheet selector
+                const sheetSelect = $('#import-sheet');
+                sheetSelect.empty();
+                importWorkbook.SheetNames.forEach((name, idx) => {
+                    sheetSelect.append(`<option value="${idx}">${name}</option>`);
+                });
+                
+                $('#import-options').show();
+                
+                // Parse first sheet by default
+                parseSelectedSheet();
+            } else {
+                // Parse CSV
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    const parsed = parseCSV(evt.target.result);
+                    importData = parsed;
+                    showImportPreview();
+                };
+                reader.readAsText(file);
             }
-            
-            $('#preview-table-container').html(html);
-            $('#import-preview').show();
-            $('#confirm-import-btn').prop('disabled', false);
-        };
-        reader.readAsText(file);
+        } catch (err) {
+            console.error('Error parsing file:', err);
+            showToast('Error reading file: ' + err.message, 'error');
+        }
     });
-
+    
+    // Sheet selection change
+    $('#import-sheet, #import-header-row').on('change', function() {
+        parseSelectedSheet();
+    });
+    
+    function parseSelectedSheet() {
+        if (!importWorkbook) return;
+        
+        const sheetIndex = parseInt($('#import-sheet').val()) || 0;
+        const headerRow = parseInt($('#import-header-row').val()) || 1;
+        const sheetName = importWorkbook.SheetNames[sheetIndex];
+        const worksheet = importWorkbook.Sheets[sheetName];
+        
+        // Convert to JSON with specified header row
+        const allData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' });
+        
+        if (allData.length < headerRow) {
+            showToast('Header row exceeds data rows', 'error');
+            return;
+        }
+        
+        // Get headers from specified row (1-based to 0-based)
+        const headers = allData[headerRow - 1].map((h, i) => h ? String(h).trim() : `Column_${i + 1}`);
+        const dataRows = allData.slice(headerRow);
+        
+        // Convert to array of objects
+        const rows = dataRows
+            .filter(row => row && row.some(cell => cell !== undefined && cell !== null && cell !== ''))
+            .map(row => {
+                const obj = {};
+                headers.forEach((h, i) => {
+                    obj[h] = row[i] !== undefined ? row[i] : '';
+                });
+                return obj;
+            });
+        
+        importData = { headers, rows };
+        showImportPreview();
+        showColumnMapping();
+    }
+    
+    function showImportPreview() {
+        if (!importData || !importData.rows.length) {
+            $('#import-preview').hide();
+            $('#confirm-import-btn').prop('disabled', true);
+            return;
+        }
+        
+        // Show preview table
+        let html = '<table class="preview-table"><thead><tr>';
+        importData.headers.forEach(h => html += `<th>${escapeHtml(h)}</th>`);
+        html += '</tr></thead><tbody>';
+        
+        importData.rows.slice(0, 5).forEach(row => {
+            html += '<tr>';
+            importData.headers.forEach(h => {
+                const val = row[h] !== undefined ? row[h] : '';
+                html += `<td>${escapeHtml(String(val))}</td>`;
+            });
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+        
+        $('#import-row-count').text(importData.rows.length);
+        $('#preview-table-container').html(html);
+        $('#import-preview').show();
+    }
+    
+    function showColumnMapping() {
+        if (!importData || !currentImportType) return;
+        
+        const mapping = importMappings[currentImportType];
+        if (!mapping) return;
+        
+        let html = '<div class="mapping-grid">';
+        
+        mapping.fields.forEach(field => {
+            const requiredMark = field.required ? '<span class="required">*</span>' : '';
+            html += `
+                <div class="mapping-row">
+                    <label>${field.label} ${requiredMark}</label>
+                    <select class="column-mapping-select" data-field="${field.key}">
+                        <option value="">-- Select Column --</option>
+                        ${importData.headers.map(h => {
+                            // Auto-select if header matches
+                            const selected = autoMatchColumn(h, field) ? 'selected' : '';
+                            return `<option value="${escapeHtml(h)}" ${selected}>${escapeHtml(h)}</option>`;
+                        }).join('')}
+                    </select>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        
+        $('#column-mapping-container').html(html);
+        $('#import-mapping').show();
+        
+        // Update mappings object
+        updateColumnMappings();
+        
+        // Listen for mapping changes
+        $('.column-mapping-select').on('change', function() {
+            updateColumnMappings();
+        });
+    }
+    
+    function autoMatchColumn(headerName, field) {
+        const h = headerName.toLowerCase().trim();
+        const key = field.key.toLowerCase();
+        const label = field.label.toLowerCase();
+        
+        // Exact or close matches
+        if (h === key || h === label) return true;
+        if (h.includes(key) || key.includes(h)) return true;
+        if (h.includes(label) || label.includes(h)) return true;
+        
+        // Common variations
+        const variations = {
+            'drn_no': ['drn no', 'drn', 'grn no', 'grn', 'drn_no'],
+            'code': ['code', 'item code', 'product code', 'sku'],
+            'name': ['name', 'item name', 'product name', 'description of item'],
+            'description': ['description', 'desc', 'description of item'],
+            'quantity': ['quantity', 'qty', 'amount'],
+            'unit': ['unit', 'uom', 'unit of measure'],
+            'category': ['category', 'cat', 'type'],
+            'date': ['date', 'delivery date', 'issue date'],
+            'remark': ['remark', 'remarks', 'note', 'notes', 'comment']
+        };
+        
+        if (variations[key]) {
+            return variations[key].some(v => h.includes(v) || v.includes(h));
+        }
+        
+        return false;
+    }
+    
+    function updateColumnMappings() {
+        columnMappings = {};
+        $('.column-mapping-select').each(function() {
+            const field = $(this).data('field');
+            const column = $(this).val();
+            if (column) {
+                columnMappings[field] = column;
+            }
+        });
+        
+        // Enable import button if required fields are mapped
+        const mapping = importMappings[currentImportType];
+        const requiredFields = mapping.fields.filter(f => f.required).map(f => f.key);
+        const allRequiredMapped = requiredFields.every(f => columnMappings[f]);
+        
+        $('#confirm-import-btn').prop('disabled', !allRequiredMapped || !importData?.rows?.length);
+    }
+    
+    // Import confirmation handler
     $('#confirm-import-btn').on('click', async function() {
         if (!importData || !importData.rows.length) {
             showToast('No data to import');
             return;
         }
         
+        const btn = $(this);
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Importing...');
+        
         try {
-            for (const row of importData.rows) {
-                const srvData = {
-                    docNum: row['SRV No'] || row['docNum'] || generateDocNumber('SRV'),
-                    date: row['Date'] || row['date'] || new Date().toISOString().split('T')[0],
-                    department: row['Department'] || row['department'] || '',
-                    source: row['Source/Supplier'] || row['source'] || '',
-                    totalValue: parseFloat(row['Total Value'] || row['totalValue']) || 0,
-                    createdAt: new Date().toISOString(),
-                    importedFrom: 'CSV'
-                };
-                await addRecord('srv', srvData);
+            let result;
+            
+            switch (currentImportType) {
+                case 'grn':
+                    result = await importGrnData();
+                    break;
+                case 'items':
+                    result = await importItemsData();
+                    break;
+                case 'srv':
+                    result = await importSrvData();
+                    break;
+                default:
+                    throw new Error('Unknown import type');
             }
             
-            showToast(`${importData.rows.length} records imported successfully`);
-            logActivity('SRV Import', `Imported ${importData.rows.length} SRV records from CSV`);
+            showToast(`Import complete: ${result.inserted} inserted, ${result.skipped} skipped, ${result.errors} errors`);
             closeModal('import');
-            await refreshTable('srv');
+            await refreshTable(currentImportType);
+            
         } catch (err) {
-            showToast('Import error: ' + err.message);
+            console.error('Import error:', err);
+            showToast('Import error: ' + err.message, 'error');
+        } finally {
+            btn.prop('disabled', false).html('<i class="fas fa-upload"></i> Import Data');
         }
     });
+    
+    // Parse Excel date (serial number or string)
+    function parseExcelDate(value) {
+        if (!value) return null;
+        
+        if (value instanceof Date) {
+            return value.toISOString().split('T')[0];
+        }
+        
+        if (typeof value === 'number') {
+            // Excel serial date
+            const date = new Date((value - 25569) * 86400 * 1000);
+            return date.toISOString().split('T')[0];
+        }
+        
+        if (typeof value === 'string') {
+            const dateStr = value.trim();
+            // Try various date formats
+            const parts = dateStr.split(/[\/\-]/);
+            if (parts.length === 3) {
+                let day = parseInt(parts[0], 10);
+                let month = parseInt(parts[1], 10);
+                let year = parseInt(parts[2], 10);
+                if (year < 100) year += 2000;
+                // Check if it's DD/MM/YYYY or MM/DD/YYYY
+                if (day > 12) {
+                    // Likely DD/MM/YYYY
+                    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                } else if (month > 12) {
+                    // Likely MM/DD/YYYY
+                    return `${year}-${String(day).padStart(2, '0')}-${String(month).padStart(2, '0')}`;
+                } else {
+                    // Assume DD/MM/YYYY
+                    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                }
+            }
+            // Try parsing as ISO date
+            const parsed = new Date(dateStr);
+            if (!isNaN(parsed)) {
+                return parsed.toISOString().split('T')[0];
+            }
+        }
+        
+        return null;
+    }
+    
+    // Import GRN data
+    async function importGrnData() {
+        const grnMap = new Map();
+        
+        // Group items by DRN NO
+        for (const row of importData.rows) {
+            const drnNo = String(row[columnMappings.drn_no] || '').trim();
+            if (!drnNo) continue;
+            
+            if (!grnMap.has(drnNo)) {
+                grnMap.set(drnNo, {
+                    drn_no: drnNo,
+                    delivery_date: parseExcelDate(row[columnMappings.date]),
+                    items: []
+                });
+            }
+            
+            const grn = grnMap.get(drnNo);
+            
+            // Update date if not set
+            if (!grn.delivery_date && columnMappings.date) {
+                grn.delivery_date = parseExcelDate(row[columnMappings.date]);
+            }
+            
+            // Add item
+            grn.items.push({
+                sno: grn.items.length + 1,
+                description: String(row[columnMappings.description] || '').trim(),
+                code: String(row[columnMappings.code] || '').trim(),
+                qtyOrdered: Number(row[columnMappings.quantity]) || 0,
+                qtyReceived: Number(row[columnMappings.quantity]) || 0,
+                unit: '',
+                remark: String(row[columnMappings.remark] || '').trim()
+            });
+        }
+        
+        // Insert GRN records
+        let inserted = 0, skipped = 0, errors = 0;
+        
+        for (const [drnNo, grn] of grnMap) {
+            try {
+                const grnData = {
+                    drn_no: grn.drn_no,
+                    delivery_date: grn.delivery_date,
+                    supplier_name: 'Imported',
+                    items: grn.items,
+                    examined_dept: '',
+                    received_dept: 'Store',
+                    distribution: ''
+                };
+                
+                await addRecord('grn', grnData);
+                inserted++;
+            } catch (err) {
+                if (err.message && err.message.includes('Duplicate')) {
+                    skipped++;
+                } else {
+                    console.error(`Error importing GRN ${drnNo}:`, err);
+                    errors++;
+                }
+            }
+        }
+        
+        return { inserted, skipped, errors };
+    }
+    
+    // Import Items data
+    async function importItemsData() {
+        let inserted = 0, skipped = 0, errors = 0;
+        
+        for (const row of importData.rows) {
+            const code = String(row[columnMappings.code] || '').trim();
+            const name = String(row[columnMappings.name] || '').trim();
+            
+            if (!code || !name) {
+                skipped++;
+                continue;
+            }
+            
+            try {
+                const itemData = {
+                    code: code,
+                    name: name,
+                    unit: String(row[columnMappings.unit] || 'pcs').trim(),
+                    category: String(row[columnMappings.category] || 'other').trim().toLowerCase(),
+                    min_stock: parseInt(row[columnMappings.min_stock]) || 0,
+                    location: String(row[columnMappings.location] || '').trim(),
+                    description: String(row[columnMappings.description] || '').trim()
+                };
+                
+                await addRecord('items', itemData);
+                inserted++;
+            } catch (err) {
+                if (err.message && err.message.includes('Duplicate')) {
+                    skipped++;
+                } else {
+                    console.error(`Error importing item ${code}:`, err);
+                    errors++;
+                }
+            }
+        }
+        
+        return { inserted, skipped, errors };
+    }
+    
+    // Import SRV data (legacy CSV support)
+    async function importSrvData() {
+        let inserted = 0, skipped = 0, errors = 0;
+        
+        for (const row of importData.rows) {
+            try {
+                const srvData = {
+                    doc_num: row[columnMappings.docNum] || row['SRV No'] || row['docNum'] || generateDocNumber('SRV'),
+                    date: parseExcelDate(row[columnMappings.date]) || new Date().toISOString().split('T')[0],
+                    department: row[columnMappings.department] || row['Department'] || '',
+                    source: row[columnMappings.source] || row['Source/Supplier'] || '',
+                    total_value: parseFloat(row[columnMappings.totalValue] || row['Total Value']) || 0
+                };
+                
+                await addRecord('srv', srvData);
+                inserted++;
+            } catch (err) {
+                if (err.message && err.message.includes('Duplicate')) {
+                    skipped++;
+                } else {
+                    errors++;
+                }
+            }
+        }
+        
+        return { inserted, skipped, errors };
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
 
     // --- Responsive Handling ---
     $(window).on('resize', function() {

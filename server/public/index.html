@@ -114,6 +114,7 @@
                     <h2>Goods Received Note (GRN)</h2>
                     <div>
                         <button id="add-grn-btn" class="btn">Add New GRN</button>
+                        <button id="import-grn" class="btn"><i class="fas fa-file-import"></i> Import Excel</button>
                         <button id="export-grn" class="btn">Export to CSV</button>
                     </div>
                 </div>
@@ -173,6 +174,7 @@
                     <h2>Manage Items</h2>
                     <div>
                         <button id="add-item-btn" class="btn">Add New Item</button>
+                        <button id="import-items" class="btn"><i class="fas fa-file-import"></i> Import Excel</button>
                         <button id="export-items" class="btn">Export to CSV</button>
                     </div>
                 </div>
@@ -740,24 +742,44 @@
         </div>
     </div>
 
-    <!-- CSV Import Modal -->
+    <!-- Excel Import Modal -->
     <div id="import-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
         <div class="modal-content">
             <span class="close-btn" tabindex="0" aria-label="Close Import Modal">&times;</span>
-            <h3 id="import-modal-title">Import CSV Data</h3>
+            <h3 id="import-modal-title"><i class="fas fa-file-import"></i> Import Data</h3>
             <div class="form-section">
+                <input type="hidden" id="import-type" value="">
                 <div class="form-group">
-                    <label for="import-file">Select CSV File</label>
-                    <input type="file" id="import-file" accept=".csv" class="file-input">
+                    <label for="import-file">Select Excel or CSV File</label>
+                    <input type="file" id="import-file" accept=".xlsx,.xls,.csv" class="file-input">
+                    <small class="form-text">Supported formats: .xlsx, .xls, .csv</small>
+                </div>
+                <div class="import-options" id="import-options" style="display:none;">
+                    <div class="form-group">
+                        <label for="import-header-row">Header Row Number</label>
+                        <input type="number" id="import-header-row" value="1" min="1" max="20" class="form-control" style="width:100px;">
+                        <small class="form-text">Row number containing column headers (1-based)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="import-sheet">Select Sheet</label>
+                        <select id="import-sheet" class="form-control"></select>
+                    </div>
                 </div>
                 <div class="import-preview" id="import-preview" style="display:none;">
-                    <h4>Preview (First 5 rows)</h4>
-                    <div id="preview-table-container"></div>
+                    <h4>Preview (First 5 rows) - <span id="import-row-count">0</span> total rows</h4>
+                    <div id="preview-table-container" style="overflow-x:auto;"></div>
+                </div>
+                <div class="import-mapping" id="import-mapping" style="display:none;">
+                    <h4>Column Mapping</h4>
+                    <p class="text-muted">Map your Excel columns to the database fields:</p>
+                    <div id="column-mapping-container"></div>
                 </div>
             </div>
             <div class="form-actions">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('import')">Cancel</button>
-                <button type="button" class="btn btn-primary" id="confirm-import-btn" disabled>Import Data</button>
+                <button type="button" class="btn btn-primary" id="confirm-import-btn" disabled>
+                    <i class="fas fa-upload"></i> Import Data
+                </button>
             </div>
         </div>
     </div>
@@ -800,6 +822,7 @@
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="offline-sync.js"></script>
     <script src="api.js"></script>
     <script src="app.js"></script>

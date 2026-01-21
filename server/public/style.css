@@ -202,6 +202,40 @@ body.dark-mode .view-section {
     background: var(--bg-tertiary);
 }
 
+/* Dark mode for import components */
+body.dark-mode .import-preview,
+body.dark-mode .import-options,
+body.dark-mode .import-mapping {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .import-preview h4,
+body.dark-mode .import-mapping h4 {
+    color: var(--lemon-green);
+}
+
+body.dark-mode .column-mapping-select {
+    background: var(--surface);
+    border-color: var(--border-medium);
+    color: var(--text-primary);
+}
+
+body.dark-mode .file-input {
+    background: var(--bg-tertiary);
+    border-color: var(--border-medium);
+    color: var(--text-primary);
+}
+
+body.dark-mode .preview-table th {
+    background: var(--royal-blue-light);
+}
+
+body.dark-mode .preview-table td {
+    background: var(--surface);
+    color: var(--text-primary);
+    border-color: var(--border-medium);
+}
+
 /* ============================================
    PASSWORD INPUT TOGGLE
    ============================================ */
@@ -1441,7 +1475,7 @@ table.dataTable tbody tr.even {
 }
 
 /* ============================================
-   IMPORT PREVIEW
+   IMPORT PREVIEW & COLUMN MAPPING
    ============================================ */
 .import-preview {
     margin-top: var(--space-4);
@@ -1458,22 +1492,128 @@ table.dataTable tbody tr.even {
     margin-bottom: var(--space-3);
 }
 
-#preview-table-container table {
+#preview-table-container table,
+.preview-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.8125rem;
 }
 
 #preview-table-container th,
-#preview-table-container td {
+#preview-table-container td,
+.preview-table th,
+.preview-table td {
     padding: var(--space-2) var(--space-3);
     border: 1px solid var(--border-light);
     text-align: left;
+    white-space: nowrap;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-#preview-table-container th {
+#preview-table-container th,
+.preview-table th {
     background: var(--royal-blue);
     color: var(--text-white);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+}
+
+.import-options {
+    margin-top: var(--space-4);
+    padding: var(--space-4);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+}
+
+.import-options .form-group {
+    margin-bottom: 0;
+}
+
+.import-mapping {
+    margin-top: var(--space-4);
+    padding: var(--space-4);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+}
+
+.import-mapping h4 {
+    font-size: 0.875rem;
+    color: var(--royal-blue);
+    margin-bottom: var(--space-2);
+}
+
+.import-mapping .text-muted {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    margin-bottom: var(--space-3);
+}
+
+.mapping-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-3);
+}
+
+.mapping-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.mapping-row label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.mapping-row .required {
+    color: var(--danger);
+}
+
+.column-mapping-select {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    background: var(--surface);
+    transition: border-color 0.2s;
+}
+
+.column-mapping-select:focus {
+    outline: none;
+    border-color: var(--royal-blue);
+    box-shadow: 0 0 0 3px var(--royal-blue-100);
+}
+
+#import-row-count {
+    font-weight: 600;
+    color: var(--royal-blue);
+}
+
+.file-input {
+    padding: var(--space-3);
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-tertiary);
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.file-input:hover {
+    border-color: var(--royal-blue);
+    background: var(--royal-blue-50);
+}
+
+.form-text {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: var(--space-1);
 }
 
 /* ============================================
