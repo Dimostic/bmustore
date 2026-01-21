@@ -1616,6 +1616,38 @@ table.dataTable tbody tr.even {
     margin-top: var(--space-1);
 }
 
+/* Import Modal - Scrollable Content */
+#import-modal .modal-content {
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+#import-modal .form-section {
+    flex: 1;
+    overflow-y: auto;
+    max-height: calc(90vh - 180px);
+    padding: var(--space-4);
+}
+
+#import-modal .form-actions {
+    position: sticky;
+    bottom: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border-light);
+    padding: var(--space-4);
+    margin-top: auto;
+    z-index: 5;
+}
+
+#import-modal h3 {
+    padding: var(--space-4);
+    margin: 0;
+    background: var(--royal-blue);
+    color: var(--text-white);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
 /* ============================================
    RESPONSIVE DESIGN
    ============================================ */
@@ -1746,6 +1778,27 @@ table.dataTable tbody tr.even {
     
     .content-section {
         padding: var(--space-3);
+    }
+    
+    /* Import modal mobile fixes */
+    #import-modal .modal-content {
+        margin: 0;
+        border-radius: 0;
+        max-height: 100vh;
+        height: 100vh;
+        width: 100%;
+    }
+    
+    #import-modal .form-section {
+        max-height: calc(100vh - 160px);
+    }
+    
+    #import-modal h3 {
+        border-radius: 0;
+    }
+    
+    .mapping-grid {
+        grid-template-columns: 1fr;
     }
     
     .stat-card .stat-value {
