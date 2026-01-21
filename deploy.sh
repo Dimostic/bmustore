@@ -5,8 +5,8 @@
 set -e
 
 # Configuration
-VPS_HOST="root@168.231.115.240"
-VPS_APP_DIR="/var/www/bmustore/server"
+VPS_HOST="root@154.113.83.116"
+VPS_APP_DIR="/var/www/bmustore"
 VPS_ENV_BACKUP="/root/.bmustore-env-backup"
 LOCAL_SERVER_DIR="./server"
 DOMAIN="bmustore.mehetti.com"

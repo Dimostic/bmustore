@@ -58,8 +58,10 @@ async function importSupplierData() {
         const row = allData[i];
         if (row && row.length > 0) {
             const rowStr = row.join(' ').toUpperCase();
-            if ((rowStr.includes('SNO') || rowStr.includes('S/NO')) && 
-                (rowStr.includes('DATE') || rowStr.includes('DESCRIPTION') || rowStr.includes('DRN'))) {
+            // Look for common header patterns - also accept ITEM column
+            if ((rowStr.includes('SNO') || rowStr.includes('S/NO') || rowStr.includes('S/N')) && 
+                (rowStr.includes('DATE') || rowStr.includes('DESCRIPTION') || rowStr.includes('DRN') || 
+                 rowStr.includes('ITEM') || rowStr.includes('QUANTITY'))) {
                 headerRowIndex = i;
                 break;
             }
@@ -84,18 +86,35 @@ async function importSupplierData() {
         const hUpper = String(h).toUpperCase().trim();
         if (hUpper.includes('SNO') || hUpper === 'S/NO' || hUpper === 'S/N') colMap.sno = i;
         if (hUpper.includes('DATE')) colMap.date = i;
-        if (hUpper.includes('DESCRIPTION')) colMap.description = i;
+        // Handle typos like "DESCIPTION" (missing R)
+        if (hUpper.includes('DESCRIPTION') || hUpper.includes('DESCIPTION')) colMap.description = i;
         if (hUpper.includes('CODE')) colMap.code = i;
         if (hUpper.includes('DRN') || hUpper.includes('GRN')) colMap.drnNo = i;
-        if (hUpper.includes('QUANTITY') || hUpper.includes('QTY')) colMap.quantity = i;
+        if (hUpper.includes('QUANTITY') || hUpper.includes('QTY') || hUpper.includes('OUANTITY')) colMap.quantity = i;
         if (hUpper.includes('REMARK')) colMap.remark = i;
     });
 
     console.log('Column mapping:', colMap);
 
+    // Generate a random DRN if no DRN column exists
+    let generateDrn = false;
+    let generatedDrnBase = null;
     if (colMap.drnNo === undefined) {
-        console.error('Error: Could not find DRN/GRN column');
-        process.exit(1);
+        console.log('Warning: No DRN/GRN column found - will generate random DRN');
+        generateDrn = true;
+        // Generate a random 4-digit DRN base (9000-9999 range to avoid conflicts)
+        generatedDrnBase = 'G' + (9000 + Math.floor(Math.random() * 1000));
+        console.log('Generated DRN base:', generatedDrnBase);
+    }
+
+    // If no description column, try to find ITEM column
+    if (colMap.description === undefined) {
+        headers.forEach((h, i) => {
+            if (!h) return;
+            const hUpper = String(h).toUpperCase().trim();
+            if (hUpper === 'ITEM' || hUpper === 'ITEMS') colMap.description = i;
+        });
+        console.log('Updated column mapping (using ITEM as description):', colMap);
     }
 
     // Parse data rows - handle items with empty DRN (they belong to previous DRN)
@@ -116,10 +135,13 @@ async function importSupplierData() {
         const descStr = String(description).toUpperCase().trim();
         if (descStr === 'DESCRIPTION' || descStr === 'DESCRIPTION OF ITEM') continue;
 
-        // Get DRN from this row or use the last known DRN
+        // Get DRN from this row or use the last known DRN or generated DRN
         let drnNo = colMap.drnNo !== undefined ? row[colMap.drnNo] : null;
         
-        if (drnNo && String(drnNo).trim() !== '') {
+        if (generateDrn) {
+            // Use the generated DRN for all items (single GRN per file)
+            drnNo = generatedDrnBase;
+        } else if (drnNo && String(drnNo).trim() !== '') {
             drnNo = String(drnNo).trim();
             // Skip if DRN looks like a header
             if (drnNo.toUpperCase().includes('DRN NO')) continue;
